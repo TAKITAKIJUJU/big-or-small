@@ -2,9 +2,9 @@
   "url": "https://usotuki.app/",
   "worker": "usotuki",
   "publishedAt": "2026-11-14",
-  "sourceCommit": "6b4edecace7b5a6d074532fc49c898505ea1ed7b",
-  "buildCommit": "6793c8c7a017aa6442a0c93a6e867ec31841f716",
-  "deploymentId": "d0762116f262401f9595904e846f46d7",
+  "sourceCommit": "138d63f89df937cfe6b714c64a4d85584d4d994e",
+  "buildCommit": "3a229f419bf41bf6f788ffb1f9faa6bf9dd8cd9a",
+  "deploymentId": "240e3f523e304645b2b640c7739d5eb9",
   "compatibilityDate": "2026-11-14",
   "assetsOnly": true,
   "runWorkerFirst": false,
@@ -12,7 +12,7 @@
   "bindings": [],
   "manifest": {
     "/index.html": {
-      "hash": "1951b8cd2e02e987072556878ef94153",
+      "hash": "5c4a18f1551dbf8f75d55cff91d926db",
       "size": 763
     },
     "/licenses.txt": {
@@ -31,17 +31,18 @@
       "hash": "ce0f0a62871c58f2d112122b61460a4c",
       "size": 943457
     },
-    "/assets/index-DhcCPBhV.css": {
-      "hash": "8866498193f997fd08c3f4e0f8c0a59f",
-      "size": 15039
+    "/assets/index-BtM8jEd_.css": {
+      "hash": "b19452884e67415c509bfe313c0cf67c",
+      "size": 15633
     },
-    "/assets/index-I4HXW5rP.js": {
-      "hash": "71cbcbf769662124e426b4ac1f1d9c03",
-      "size": 248430
+    "/assets/index-DA6Bv0ug.js": {
+      "hash": "ecf43139c62c92fb874fc20332222a08",
+      "size": 258641
     }
   },
-  "previousDeploymentId": "28ebdfd147bd46d8a4afa492bafd2133",
-  "updatedAt": "2026-11-14T15:06:49.476155+00:00",
+  "previousDeploymentId": "d0762116f262401f9595904e846f46d7",
+  "updatedAt": "2026-11-14T15:58:51.619627+00:00",
   "ruleset": "pressure",
-  "legacySavedRuleset": "classic"
+  "legacySavedRuleset": "classic",
+  "botStrategy": "public-range-v2"
 }

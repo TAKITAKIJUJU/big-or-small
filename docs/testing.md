@@ -9,9 +9,9 @@
 | npm install                                 | 成功、package-lock.json生成                      |
 | npm run typecheck                           | 成功、TypeScript strict                          |
 | npm run lint                                | 成功、エラー・警告0                              |
-| npm run test                                | 最新27件成功。600試合の合法ランダム対局を含む    |
+| npm run test                                | 最新39件成功。600試合の合法ランダム対局を含む    |
 | npm run build                               | 成功、dist生成。Three.jsの大きなチャンク警告あり |
-| npm run test:e2e                            | ローカル17経路、本番4件成功（末尾参照）          |
+| npm run test:e2e                            | 最新ローカル19件、本番3件成功（末尾参照）        |
 | npm audit --omit=dev --audit-level=high     | 実行時依存の脆弱性0件（その時点のDB）            |
 | git diff --check                            | 成功                                             |
 | sites-preview start /workspace/big-or-small | 失敗。relayの4173ポート接続準備がタイムアウト    |
@@ -120,3 +120,9 @@ Android実機未検証。数値の楽しさ・対戦時間・難易度のバラ�
 判断の表示は終了後に作る物語ではなく、実際の行動時に保存した理由コード。相手の本心を知っているという表示はしない。勝率の改善率や人間の達人に相当する強さは未測定。Android実機の戦略処理時間も未測定。
 
 実装と近似の範囲はnpc-strategy.md、画像は `/workspace/artifacts/usotuki/reading-npc/`。
+
+### 読み合いNPC版の本番確認
+
+https://usotuki.app/ に公開し、7アセットが製品ビルドと一致。13回完走時の実際の判断記録、対戦中の非表示、終了後の開示設定、保存とホームからの再表示を公開URLで操作し、3件すべて成功（約45秒）。
+
+コマンド：`PLAYWRIGHT_BASE_URL=https://usotuki.app npm run test:e2e -- --grep '実操作で13|対戦中はNPC|終了後の判断'`
