@@ -1,3 +1,4 @@
+import type { Ruleset } from "../game/stakes";
 import {
   createGame,
   transition,
@@ -32,6 +33,7 @@ export interface Entry {
   roll?: number;
 }
 export interface Session {
+  ruleset?: Ruleset;
   allIn: boolean;
   entries: Entry[];
 }
@@ -74,7 +76,13 @@ export function replay(session: Session): GameState {
     session.entries.length > 1500
   )
     throw new Error("保存形式が不正です");
-  let state = createGame(session.allIn);
+  if (
+    session.ruleset !== undefined &&
+    !["classic", "pressure"].includes(session.ruleset)
+  )
+    throw new Error("ルールの保存形式が不正です");
+  // 公開済みv1のログは固定参加料のまま再生する。
+  let state = createGame(session.allIn, session.ruleset ?? "classic");
   for (const entry of session.entries) {
     if (!entry || typeof entry.command !== "object" || !entry.command)
       throw new Error("コマンドが不正です");

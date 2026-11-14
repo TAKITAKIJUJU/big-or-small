@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { actionText, type BetAction, type PlayerView } from "./game/engine";
+import { ANTES, BET_LIMITS } from "./game/stakes";
 import { useGame } from "./lib/useGame";
 import { unlockAudio } from "./lib/audio";
 import type { Settings } from "./lib/session";
@@ -92,43 +93,62 @@ function Rules() {
   return (
     <div className="prose">
       <p>
-        13枚の札を、一度ずつ。NPCより多くのチップを残せば、あなたの勝ちです。
+        13枚を一度ずつ使い、最後に多くのチップを残した方の勝ちです。参加料も賭けられる額も、ラウンドが進むほど上がります。
       </p>
       <ol>
-        <li>お互いに2チップを中央へ出します。</li>
-        <li>1〜13から1枚を選び、伏せて確定。NPCも抽選前に確定します。</li>
         <li>
-          <b>BIG</b>なら大きい数字、<b>SMALL</b>
-          なら小さい数字が勝ち。毎回、独立した五分五分の抽選です。
+          双方が参加料を出します。支払った分はポットに入り、勝者が受け取ります。
         </li>
-        <li>結果を見て、賭けるか、降りるかを決めます。</li>
+        <li>カードを1枚ずつ伏せて確定。NPCも抽選前に確定します。</li>
         <li>
-          コール、または双方チェックで札を公開。同数はポットを半分ずつ受け取ります。
+          BIGなら大きい数字、SMALLなら小さい数字が勝ち。毎回50%ずつの独立抽選です。
         </li>
+        <li>
+          抽選後に賭ける額を決めます。双方チェック、またはコールでカードを公開。
+        </li>
+        <li>降りたらポットを譲り、両方のカードを非公開で使い終えます。</li>
       </ol>
+      <table className="stakes-table" aria-label="参加料と追加上限">
+        <thead>
+          <tr>
+            <th>回</th>
+            <th>参加料 / 人</th>
+            <th>追加上限 / 人</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ANTES.map((fee, i) => (
+            <tr key={i}>
+              <td>{i + 1}</td>
+              <td>{fee}</td>
+              <td>{BET_LIMITS[i] ?? "有効スタック"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p>
+        参加料に足りない場合は、少ない側の残額を双方が出して最後の勝負に参加します。参加料だけで全額になったら、選札・抽選後に自動で公開します。どちらかの所持チップが0になるか、13回で終了です。
+      </p>
       <dl>
         <dt>チェック</dt>
         <dd>追加で賭けずに手番を渡す。</dd>
         <dt>ベット</dt>
         <dd>追加でチップを賭け始める。</dd>
         <dt>コール</dt>
-        <dd>相手の追加拠出と同じ合計額にする。</dd>
+        <dd>相手と同じ合計額まで出す。</dd>
         <dt>レイズ</dt>
-        <dd>相手の額に上乗せする。1ラウンド合計2回まで。</dd>
+        <dd>相手の額に上乗せする。双方で合計2回まで。</dd>
         <dt>フォールド</dt>
-        <dd>降りてポットを譲る。両者の札は裏のまま廃棄。</dd>
+        <dd>降りてポットを譲る。カードは非公開。</dd>
       </dl>
       <p>
-        通常は2チップ刻み・1人の追加拠出合計20まで。先手は交代します。受けられていない差額は返還されます。
+        追加額は原則2刻み。相手が払える額が上限です。残額の端数だけ例外で、受けられなかった差額は返します。同数の札はポットを半分ずつ受け取ります。
       </p>
       <p>
-        13ラウンド、またはどちらかが次のアンティ2を払えなくなると終了。使った札は戻りません。
-      </p>
-      <p>
-        オールインをONにすると20の上限を外します。相手が払える有効額までで、端数のみ1チップ刻みも可。双方が同額を拠出してから公開します。
+        最終回は有効スタックまで賭けられます。設定で「全ラウンドで全額勝負」をONにすると、最初からこの制限になります。「最大」は額を選ぶ操作で、ベット／レイズを押すまでチップは出ません。
       </p>
       <small>
-        チップはゲーム内だけの数値です。現実のお金・課金・換金・賞金はありません。Botは通信せず、このブラウザ内で動作します。
+        古い保存試合は参加料2・追加上限20の旧ルールを維持します。新しい対戦から参加料上昇が適用されます。チップはゲーム内だけの数値で、現実のお金・課金・換金・賞金はありません。
       </small>
     </div>
   );
@@ -216,7 +236,7 @@ function SettingsPanel({
         />
       </label>
       <label className="toggle">
-        オールイン（次の対戦から）
+        全ラウンドで全額勝負（次の対戦から）
         <input
           type="checkbox"
           checked={settings.allIn}
@@ -253,7 +273,10 @@ function History({ view }: { view: PlayerView | null }) {
             <div className="history-row" key={r.round}>
               <span>
                 <b>{String(r.round).padStart(2, "0")}</b>{" "}
-                <small>{r.mode}</small>
+                <small>
+                  {r.mode}
+                  <span className="history-fee">参加料 {r.ante}</span>
+                </small>
               </span>
               <span>{r.cards.human ?? "非公開"}</span>
               <span>{r.cards.bot ?? "非公開"}</span>
@@ -330,11 +353,11 @@ function Betting({
     <>
       <div className="bet-status">
         <span>
-          あなたの追加拠出 <b>{view.contributions.human}</b>
+          自分の札 <b>{view.ownCard}</b> · 追加 {view.contributions.human}
         </span>
         <span>
           NPC <b>{view.contributions.bot}</b> / 上限{" "}
-          {view.allIn ? "有効スタック" : 20}
+          {view.betLimit ?? "有効スタック"}
         </span>
       </div>
       {increases.length > 0 && (
@@ -379,6 +402,39 @@ function Betting({
             ＋
           </button>
         </div>
+      )}
+      {increases.length > 0 && (
+        <>
+          <div className="bet-presets" role="group" aria-label="ベット額の候補">
+            {[
+              { label: "最小", value: amounts[0] },
+              {
+                label: "半分",
+                value: amounts[Math.floor((amounts.length - 1) / 2)],
+              },
+              {
+                label: total === amounts.at(-1) ? "最大を選択中" : "最大",
+                value: amounts.at(-1)!,
+              },
+            ].map((preset, i) => (
+              <button
+                key={i}
+                disabled={busy}
+                aria-pressed={total === preset.value}
+                onClick={() => setAmount(preset.value)}
+              >
+                {preset.label}
+                <b>{preset.value}</b>
+              </button>
+            ))}
+          </div>
+          <p className="stake-risk">
+            この額で双方が勝負したら{" "}
+            <b>
+              勝ち +{view.ante + total} / 負け −{view.ante + total}
+            </b>
+          </p>
+        </>
       )}
       <div className="action-buttons">
         {view.legal.some((a) => a.type === "fold") && (
@@ -590,7 +646,7 @@ export default function App() {
               <p>一枚選んで、相手の判断を読む。</p>
             </section>
             <section className="home-menu">
-              <div className="menu-note">NPC対戦 · 13ラウンド</div>
+              <div className="menu-note">参加料 2 → 80 · 13ラウンド</div>
               {inMatch && (
                 <button
                   className="button primary full"
@@ -697,19 +753,34 @@ export default function App() {
                 >
                   {view.mode ??
                     (view.phase === "drawing" ? "抽選中" : "BIG / SMALL")}
+                  {view.mode && (
+                    <small>
+                      {view.mode === "BIG" ? "大きい数字" : "小さい数字"}
+                    </small>
+                  )}
                 </span>
-                <span>
-                  {view.mode === "BIG"
-                    ? "大きい数字が勝つ"
-                    : view.mode === "SMALL"
-                      ? "小さい数字が勝つ"
-                      : "双方の確定後に抽選"}
+                <span className="ante-status">
+                  参加料 <b>{view.ante}</b>
+                  {view.nextScheduledAnte !== null && (
+                    <> → 次 {view.nextScheduledAnte}</>
+                  )}
+                  {view.ante < view.scheduledAnte && (
+                    <small>規定 {view.scheduledAnte} · 残額で参加</small>
+                  )}
                 </span>
               </div>
-              <div className="scene-tools">
+              <div
+                className="scene-tools"
+                hidden={
+                  view.phase === "betting" &&
+                  view.turn === "human" &&
+                  !game.revealPending
+                }
+              >
                 <span>
                   {fallback ? "軽量表示 · " : ""}
-                  {view.allIn ? "オールイン有効" : "上限 20"}
+                  {view.ruleset === "classic" ? "旧ルール · " : ""}追加上限{" "}
+                  {view.betLimit ?? "有効スタック"}
                 </span>
                 <button
                   onClick={() => {
@@ -725,6 +796,11 @@ export default function App() {
                 className={`control-panel ${view.phase === "finished" ? "end-panel" : ""}`}
                 aria-label="対戦操作"
               >
+                {view.ruleset === "classic" && (
+                  <p className="legacy-note">
+                    旧ルールで再開中。新しい対戦から参加料が上がります。
+                  </p>
+                )}
                 {tutorial && (
                   <div className="tutorial">
                     <p>{tutorialText}</p>
@@ -837,6 +913,11 @@ export default function App() {
                   ))}
                 {view.phase === "resolved" && !game.revealPending && last && (
                   <>
+                    {view.chips.human - last.delta.human <
+                      view.chips.bot - last.delta.bot &&
+                      view.chips.human > view.chips.bot && (
+                        <p className="comeback-label">この勝負で逆転</p>
+                      )}
                     <div className="round-result">
                       <div>
                         <span>
@@ -868,11 +949,12 @@ export default function App() {
                         if (tutorial) closeTutorial();
                       }}
                     >
-                      {view.round === 13 ||
-                      Math.min(view.chips.human, view.chips.bot) < 2
-                        ? "対戦の結果へ"
-                        : "次のラウンド"}
-                      <span>{view.round < 13 ? "次へ →" : "結果へ →"}</span>
+                      {!view.canContinue ? "対戦の結果へ" : "次のラウンド"}
+                      <span>
+                        {view.canContinue
+                          ? `次は参加料 ${view.nextAnte}${view.nextAnte !== view.nextScheduledAnte ? `（規定${view.nextScheduledAnte}）` : ""} →`
+                          : "結果へ →"}
+                      </span>
                     </button>
                   </>
                 )}
@@ -892,7 +974,9 @@ export default function App() {
                       </p>
                       <small>
                         {view.history.length < 13
-                          ? "次のアンティを支払えないため対戦終了"
+                          ? view.ruleset === "classic"
+                            ? "次の参加料を払えないため対戦終了"
+                            : "所持チップが0になったため対戦終了"
                           : "すべてのカードを使い終えました。"}
                       </small>
                     </div>
