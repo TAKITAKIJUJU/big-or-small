@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { actionText, type BetAction, type PlayerView } from "./game/engine";
 import { ANTES, BET_LIMITS } from "./game/stakes";
+import { REASON_TEXT, type BotLog } from "./game/bot";
 import { useGame } from "./lib/useGame";
 import { unlockAudio } from "./lib/audio";
 import type { Settings } from "./lib/session";
@@ -181,6 +182,9 @@ function SettingsPanel({
           ))}
         </select>
       </label>
+      <small className="strategy-help">
+        初級は読みやすく、中級は札の温存と駆け引き、上級は相手の降り方や見せたブラフも判断に使います。
+      </small>
       <label>
         演出の速度
         <select
@@ -256,7 +260,13 @@ function SettingsPanel({
     </div>
   );
 }
-function History({ view }: { view: PlayerView | null }) {
+function History({
+  view,
+  botReview,
+}: {
+  view: PlayerView | null;
+  botReview: BotLog[];
+}) {
   return (
     <div className="history">
       {!view?.history.length ? (
@@ -322,9 +332,33 @@ function History({ view }: { view: PlayerView | null }) {
                     </p>
                   );
                 })}
-              <small>
-                公開後の札による振り返りです。対戦中のBotは相手の札を参照しません。
-              </small>
+              <small>公開後の札による振り返りです。</small>
+              {botReview.length > 0 && (
+                <section className="npc-analysis" aria-label="NPCの判断記録">
+                  <h3>NPCは何を狙っていたか</h3>
+                  <p>
+                    当時の公開情報からの推定です。読みが外れることもあります。
+                  </p>
+                  {view.history.map((round) => {
+                    const logs = botReview.filter(
+                      (log) => log.round === round.round,
+                    );
+                    return logs.length > 0 ? (
+                      <details key={round.round}>
+                        <summary>第{round.round}回の狙い</summary>
+                        {logs.map((log, i) => (
+                          <p key={i}>
+                            <span>
+                              {log.kind === "card" ? "札選び" : "賭け方"}
+                            </span>
+                            {REASON_TEXT[log.reason]}
+                          </p>
+                        ))}
+                      </details>
+                    ) : null;
+                  })}
+                </section>
+              )}
             </div>
           )}
         </>
@@ -682,6 +716,14 @@ export default function App() {
                   実践チュートリアル
                 </button>
               </div>
+              {view?.phase === "finished" && (
+                <button
+                  className="previous-review"
+                  onClick={() => setModal("history")}
+                >
+                  前の対戦を振り返る
+                </button>
+              )}
               <div className="home-foot">
                 <span>1人プレイ</span>
                 <span>設定は対戦中も変更できます</span>
@@ -1056,7 +1098,7 @@ export default function App() {
             ) : modal === "rules" ? (
               <Rules />
             ) : modal === "history" ? (
-              <History view={view} />
+              <History view={view} botReview={game.botReview} />
             ) : (
               <>
                 <p className="prose">

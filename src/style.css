@@ -1116,3 +1116,46 @@ input[type="range"] {
 .scene-tools[hidden] {
   display: none;
 }
+
+.npc-analysis {
+  margin-top: 24px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.npc-analysis > p {
+  font-size: 10px;
+  color: var(--muted);
+}
+.npc-analysis details {
+  border-bottom: 1px solid var(--line);
+  padding: 8px 0;
+}
+.npc-analysis summary {
+  padding: 10px 0;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--paper);
+}
+.npc-analysis details p {
+  display: flex;
+  gap: 10px;
+  line-height: 1.8;
+  padding: 0 0 8px;
+}
+.npc-analysis details p span {
+  flex: 0 0 36px;
+  color: var(--muted);
+}
+
+.previous-review {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: -12px 0 10px;
+  background: transparent;
+  border: 0;
+  color: #bac6c6;
+  font-size: 11px;
+  text-align: left;
+  padding: 0;
+}

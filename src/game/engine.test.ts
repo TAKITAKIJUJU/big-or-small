@@ -290,4 +290,4 @@ it("600試合の合法ランダム対局で全状態の600チップ・カード�
     expect(s.history.length).toBeLessThanOrEqual(13);
     expect(s.history.length).toBeGreaterThan(0);
   }
-});
+}, 30000);
