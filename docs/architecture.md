@@ -27,3 +27,5 @@ Botへの入力は `getPlayerView(state, 'bot', false)`。Botにはstateも人�
 二重操作は180msの同期ロック、エンジンのphase/turn検証、Botタイマーのrevision検証で防ぐ。モーダル・ホーム中はBot進行を停止。遷移タイマーはEffect cleanupで破棄し、再開時に現在のphaseから続行する。
 
 保存形式は同じv1のままSessionにrulesetを追加。省略時はclassic、新規はpressure。エンジンは実際の参加料・規定額・追加上限をPlayerViewへ出し、UIは同じ値を表示する。旧ログの金額は変更しない。
+
+NPCはbot.tsの候補評価とopponent-model.tsの公開情報推定に分離。モデルは公開ビューのスナップショットのみを参照し、残りカード集合の分布を再構築する。Session.botDecisionsは任意の理由ログで、ルールの再生には影響しない。UIへ渡すのは終了後・開示ONの場合だけ。詳細はnpc-strategy.md。

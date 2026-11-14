@@ -10,7 +10,7 @@ Cloudflare Worker `usotuki` のStatic Assetsのみで配信する。動的コー
 
 検証済みビルドの7ファイルを公式のDirect Uploads APIでアップロードし、Custom Domainを接続。Cloudflareが管理するプロキシ付きAAAAレコードが作成された。HTTPS 200と全アセットのバイト一致、公開URLでの3D表示・13ラウンド完走・履歴・再戦を確認済み。
 
-ソースは`3de022c`、配信ファイルは既存リポジトリの`codex/usotuki-static-release`ブランチ、コミット`94e8849d2010880df2726266dcc5c66d8961a294`に保存。秘密を含まない配信記録は`deployment/production.json`。
+初回公開のソースは`3de022c`、配信ファイルは既存リポジトリの`codex/usotuki-static-release`ブランチ、コミット`94e8849d2010880df2726266dcc5c66d8961a294`に保存。秘密を含まない配信記録は`deployment/production.json`。
 
 接続済みCloudflareツールを利用できたため、CLIへの認証情報の受け渡しは行わず公式APIを使用した。アセット用の短期JWTはメモリと非表示の標準入力でのみ扱い、ソース・ファイル・出力ログへ保存していない。
 
@@ -75,3 +75,11 @@ GitHubの自動ビルド連携は未設定。導入時は既存 `TAKITAKIJUJU/bi
 - https://developers.cloudflare.com/workers/cache/
 
 公開直前に上記ページとDashboardのプラン・使用量を再確認する。
+
+## 参加料上昇版の公開更新
+
+2026-11-14、同じWorkerとドメインへ更新。ソース`6b4edec`、静的ビルド`6793c8c`、deployment `d0762116f262401f9595904e846f46d7`。最新の配信記録とハッシュはdeployment/production.jsonを参照。
+
+新しい対戦は参加料2〜80、追加上限も上昇、最終回は有効スタック。旧セーブはclassicで維持。更新後の7アセットは配信データとビルドのバイト一致を確認した。本番URLで13回完走・参加料2→4・160対440から320対280の逆転・0で途中終了の4件を実操作で確認して成功。
+
+新規リソース作成、DNS変更、プラン変更はなく、静的配信のみを更新した。Android実機は未検証。

@@ -1,3 +1,4 @@
+import { REASON_TEXT, type BotLog } from "../game/bot";
 import type { Ruleset } from "../game/stakes";
 import {
   createGame,
@@ -32,7 +33,25 @@ export interface Entry {
   command: GameCommand;
   roll?: number;
 }
+export function safeBotLogs(value: unknown): BotLog[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, 128)
+    .filter(
+      (x): x is BotLog =>
+        !!x &&
+        typeof x === "object" &&
+        Number.isInteger(x.round) &&
+        x.round >= 1 &&
+        x.round <= 13 &&
+        (x.kind === "card" || x.kind === "bet") &&
+        typeof x.reason === "string" &&
+        Object.hasOwn(REASON_TEXT, x.reason),
+    )
+    .map((x) => ({ round: x.round, kind: x.kind, reason: x.reason }));
+}
 export interface Session {
+  botDecisions?: BotLog[];
   ruleset?: Ruleset;
   allIn: boolean;
   entries: Entry[];
@@ -123,10 +142,13 @@ export function load(): {
     const x = JSON.parse(raw);
     if (x.version !== 1) throw new Error("保存バージョンが異なります");
     const settings = settingsFrom(x.settings);
+    const session = x.session
+      ? { ...x.session, botDecisions: safeBotLogs(x.session.botDecisions) }
+      : null;
     return {
       settings,
-      session: x.session ?? null,
-      state: x.session ? replay(x.session) : null,
+      session,
+      state: session ? replay(session) : null,
       notice: "",
     };
   } catch {

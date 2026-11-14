@@ -111,6 +111,11 @@ test("実操作で13ラウンド完走し履歴・再戦", async ({ page }) => {
   await page.screenshot({ path: "test-results/result.png" });
   await page.getByRole("button", { name: "対戦を振り返る" }).click();
   await expect(page.locator(".history-row")).toHaveCount(13);
+  await expect(
+    page.getByRole("region", { name: "NPCの判断記録" }),
+  ).toBeVisible();
+  await page.getByText("第1回の狙い", { exact: true }).click();
+  await expect(page.locator(".npc-analysis")).toContainText("札選び");
   await page.getByRole("button", { name: "閉じる", exact: true }).click();
   await page.getByRole("button", { name: "もう一度対戦する" }).click();
   await expect(
@@ -358,4 +363,54 @@ test("全額勝負で0になったら実際の終了ラウンドで結果を出�
   await expect(page.locator(".final-result")).toContainText("10ラウンド終了");
   await expect(page.locator(".round-counter strong")).toContainText("10");
   await expect(page.locator(".ante-status")).not.toContainText("次");
+});
+
+test("対戦中はNPCの判断記録を履歴へ出さない", async ({ page }) => {
+  await setup(page);
+  await start(page);
+  await page.getByRole("button", { name: "対戦履歴" }).click();
+  await expect(page.locator(".npc-analysis")).toHaveCount(0);
+  await page.getByRole("button", { name: "閉じる", exact: true }).click();
+});
+test("終了後の判断記録は保存・再開でき、開示設定に従う", async ({ page }) => {
+  const fixture = comebackFixture();
+  for (const entry of fixture.session.entries.slice(-4))
+    if (entry.command.type === "select")
+      entry.command.card = entry.command.player === "human" ? 10 : 13;
+  fixture.session.botDecisions = [
+    { round: 10, kind: "card", reason: "use-now" },
+    { round: 10, kind: "bet", reason: "value-after-bluff" },
+  ];
+  await page.addInitScript(
+    (s) => {
+      if (!localStorage.getItem("usotuki.v1"))
+        localStorage.setItem("usotuki.v1", JSON.stringify(s));
+    },
+    {
+      version: 1,
+      settings: { ...settings, reveal: false },
+      session: fixture.session,
+    },
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "対戦を再開" }).click();
+  await page.getByRole("button", { name: /^コール/ }).click();
+  await page.waitForTimeout(190);
+  await page.getByRole("button", { name: "対戦の結果へ" }).click();
+  await page.getByRole("button", { name: "対戦を振り返る" }).click();
+  await expect(page.locator(".npc-analysis")).toHaveCount(0);
+  await page.getByRole("button", { name: "閉じる", exact: true }).click();
+  await page.getByRole("button", { name: "設定", exact: true }).click();
+  await page.getByLabel("試合終了後に全カードを開示").check();
+  await page.getByRole("button", { name: "閉じる", exact: true }).click();
+  await page.getByRole("button", { name: "対戦を振り返る" }).click();
+  await expect(page.locator(".npc-analysis")).toBeVisible();
+  await page.getByText("第10回の狙い", { exact: true }).click();
+  await expect(page.locator(".npc-analysis")).toContainText("今度は強い札");
+  await page.screenshot({ path: "test-results/npc-review.png" });
+  await page.reload();
+  await page.getByRole("button", { name: "前の対戦を振り返る" }).click();
+  await expect(page.locator(".npc-analysis")).toBeVisible();
+  await page.getByText("第10回の狙い", { exact: true }).click();
+  await expect(page.locator(".npc-analysis")).toContainText("今度は強い札");
 });

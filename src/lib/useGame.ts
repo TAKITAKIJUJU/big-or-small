@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { chooseAction, chooseCard } from "../game/bot";
+import { decideAction, decideCard, type BotLog } from "../game/bot";
 import {
   createGame,
   getPlayerView,
@@ -9,6 +9,7 @@ import {
 import {
   load,
   save,
+  safeBotLogs,
   secureRandom,
   type Session,
   type Settings,
@@ -73,19 +74,18 @@ export function useGame() {
       );
       // 抽選は演出より先に確定。次ラウンドのBotも人間の操作前に伏せる。
       if (next.phase === "drawing") dispatch({ type: "draw" }, next.revision);
-      else if (next.phase === "selecting" && next.selected.bot === null)
+      else if (next.phase === "selecting" && next.selected.bot === null) {
+        const decision = decideCard(
+          getPlayerView(next, "bot", false),
+          settingsRef.current.difficulty,
+          secureRandom,
+        );
         dispatch(
-          {
-            type: "select",
-            player: "bot",
-            card: chooseCard(
-              getPlayerView(next, "bot", false),
-              settingsRef.current.difficulty,
-              secureRandom,
-            ),
-          },
+          { type: "select", player: "bot", card: decision.card },
           next.revision,
         );
+        recordDecision(decision.log);
+      }
     } catch (e) {
       setNotice(
         e instanceof Error ? e.message : "操作を受け付けられませんでした",
@@ -95,17 +95,22 @@ export function useGame() {
   function newGame(config: Settings) {
     setRevealPending(false);
     let next = createGame(config.allIn);
-    const card = chooseCard(
+    const decision = decideCard(
       getPlayerView(next, "bot", false),
       config.difficulty,
       secureRandom,
     );
-    const command: GameCommand = { type: "select", player: "bot", card };
+    const command: GameCommand = {
+      type: "select",
+      player: "bot",
+      card: decision.card,
+    };
     next = transition(next, command);
     session.current = {
       ruleset: next.ruleset,
       allIn: config.allIn,
       entries: [{ command }],
+      botDecisions: [decision.log],
     };
     internal.current = next;
     setState(next);
@@ -122,39 +127,49 @@ export function useGame() {
       setBusy(false);
     }, 180);
   }
+  function recordDecision(log: BotLog) {
+    if (session.current)
+      session.current = {
+        ...session.current,
+        botDecisions: [...(session.current.botDecisions ?? []), log].slice(
+          -128,
+        ),
+      };
+  }
   function step(expected: number) {
     const s = internal.current;
     if (!s || s.revision !== expected) return;
-    if (s.phase === "selecting" && s.selected.bot === null)
+    if (s.phase === "selecting" && s.selected.bot === null) {
+      const decision = decideCard(
+        getPlayerView(s, "bot", false),
+        settings.difficulty,
+        secureRandom,
+      );
       dispatch(
-        {
-          type: "select",
-          player: "bot",
-          card: chooseCard(
-            getPlayerView(s, "bot", false),
-            settings.difficulty,
-            secureRandom,
-          ),
-        },
+        { type: "select", player: "bot", card: decision.card },
         expected,
       );
-    else if (s.phase === "drawing") dispatch({ type: "draw" }, expected);
-    else if (s.phase === "betting" && s.turn === "bot")
+      recordDecision(decision.log);
+    } else if (s.phase === "drawing") dispatch({ type: "draw" }, expected);
+    else if (s.phase === "betting" && s.turn === "bot") {
+      const decision = decideAction(
+        getPlayerView(s, "bot", false),
+        settings.difficulty,
+        secureRandom,
+      );
       dispatch(
-        {
-          type: "act",
-          player: "bot",
-          action: chooseAction(
-            getPlayerView(s, "bot", false),
-            settings.difficulty,
-            secureRandom,
-          ),
-        },
+        { type: "act", player: "bot", action: decision.action },
         expected,
       );
+      recordDecision(decision.log);
+    }
   }
   return {
     view: state ? getPlayerView(state, "human", settings.reveal) : null,
+    botReview:
+      state?.phase === "finished" && settings.reveal
+        ? safeBotLogs(session.current?.botDecisions)
+        : [],
     settings,
     setSettings,
     notice,
