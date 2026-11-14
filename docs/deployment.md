@@ -105,3 +105,18 @@ GitHubの自動ビルド連携は未設定。導入時は既存 `TAKITAKIJUJU/bi
 実行：`PLAYWRIGHT_BASE_URL=https://usotuki.app npm run test:e2e -- --grep '実操作で13|上級は実際|Workerを起動|上級の計算中|対戦中はNPC|終了後の判断'`
 
 旧上級に対する勝率比較は公開ブラウザの試験とは別に、純粋エンジンと固定seedで実施した。241勝2分157敗はその400戦の結果で、プレイヤー全員への勝率ではない。Android実機未検証。配信用ZIPと公開画面は `/workspace/artifacts/usotuki/strong-npc/`。
+
+## 抽選先行・参加料持越版の公開
+
+2026-11-14、既存 https://usotuki.app/ を更新。
+
+- source：`0d5a3461157afd42165365d276f519d45e6115a4`
+- build：`a4e2e50ebceb7c30170a9bc713ccee5a41090a30`
+- deployment：`263e9a79915e452592e119ad79af400f`（前回596320817446476ca855a9bd5f998379）
+- 新規open対戦に抽選先行・全回有効スタック・同数時の追加分返還と参加料持越を適用。旧classic／pressureの進行中セーブは当時のルールを維持。
+- 公開8ファイルがビルドとバイト一致。assets-only、has_modules=false、run_worker_first=false、bindingsなし、Worker Cache無効。DNS・プラン・DB・外部APIは追加しない。
+- 公開URLで上級13回完走、旧pressureセーブの逆転精算、選札前の条件と298上限、同数返還・4持越→次回12・再読込、実Worker応答の5件が成功（52.5秒）。
+
+実行：`PLAYWRIGHT_BASE_URL=https://usotuki.app npm run test:e2e -- --grep '実操作で13|選札前に|全額同数|公開された合法ログ|上級は実際'`
+
+配信用ZIP・画面・公開資産照合JSONは `/workspace/artifacts/usotuki/open-rules/`。Android実機未検証。
