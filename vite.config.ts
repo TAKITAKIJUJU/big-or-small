@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
-  test: { include: ["src/**/*.test.ts"] },
+  test: { include: process.env.NPC_ARENA === "1" ? ["tests/npc-arena.test.ts"] : ["src/**/*.test.ts"] },
   build: {
     rollupOptions: {
       output: { manualChunks: { three: ["three", "@react-three/fiber"] } },

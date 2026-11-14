@@ -90,7 +90,9 @@ test("3D描画と全幅のホーム・選札・設定、横溢れがない", asy
   expect(errors).toEqual([]);
 });
 test("実操作で13ラウンド完走し履歴・再戦", async ({ page }) => {
-  await setup(page, { tutorialSeen: false });
+  await setup(page, { tutorialSeen: false, difficulty: "hard" });
+  let workers = 0;
+  page.on("worker", () => workers++);
   await page.addInitScript(() =>
     Object.defineProperty(crypto, "getRandomValues", {
       value: (array: Uint32Array) => {
@@ -108,6 +110,7 @@ test("実操作で13ラウンド完走し履歴・再戦", async ({ page }) => {
     await finishRound(page);
   }
   await expect(page.locator(".final-result")).toContainText("13ラウンド終了");
+  expect(workers).toBeGreaterThanOrEqual(13);
   await page.screenshot({ path: "test-results/result.png" });
   await page.getByRole("button", { name: "対戦を振り返る" }).click();
   await expect(page.locator(".history-row")).toHaveCount(13);

@@ -5,6 +5,7 @@ import {
   type PlayerView,
 } from "./engine";
 import { getRoundStakes } from "./stakes";
+import { solveBetting } from "./betting-search";
 import {
   analyseOpponent,
   equity,
@@ -24,7 +25,9 @@ export type BotReason =
   | "fold"
   | "protect-lead"
   | "value-after-bluff"
-  | "bluff-after-value";
+  | "bluff-after-value"
+  | "check-raise"
+  | "re-raise";
 export interface BotLog {
   round: number;
   kind: "card" | "bet";
@@ -46,6 +49,8 @@ export const REASON_TEXT: Record<BotReason, string> = {
     "以前に見せたブラフで受けられやすいと見て、今度は強い札で賭けた。",
   "bluff-after-value":
     "強い札を見せた履歴と相手の降り方を見て、今度はブラフで賭けた。",
+  "check-raise": "先にチェックした後のベットへ、コールや再レイズも見込んでレイズを返した。",
+  "re-raise": "相手のレイズへさらに返し、降りる場合と最後まで受ける場合を比べた。",
 };
 export interface CardOption {
   card: number;
@@ -250,6 +255,7 @@ export function actionPolicy(
 ): ActionOption[] {
   if (!view.legal.length || view.ownCard === null || view.mode === null)
     throw new Error("合法手がありません");
+  if (difficulty === "hard") return solveBetting(view).options;
   const model = analyseOpponent(view),
     p = equity(view.ownCard, view.mode, model.range),
     own = view.viewer,
@@ -343,12 +349,10 @@ export function actionPolicy(
     temperature = Math.max(
       0.8,
       (view.ante + cap * 0.07) *
-        (difficulty === "hard" ? 0.16 : difficulty === "medium" ? 0.42 : 0.95),
+        (difficulty === "medium" ? 0.42 : 0.95),
     );
   const regret =
-    difficulty === "hard"
-      ? temperature * 3
-      : difficulty === "medium"
+    difficulty === "medium"
         ? temperature * 5
         : temperature * 9;
   const eligible = options.filter((x) => x.score >= best - regret),
@@ -374,6 +378,7 @@ export function decideAction(
         : "fold";
   else if (
     chosen.action.type === "check" &&
+    view.actions.at(-1)?.action.type !== "check" &&
     strength >= 0.7 &&
     model.aggression >= 0.35
   )
@@ -391,6 +396,11 @@ export function decideAction(
       reason = model.ownShownValue >= 2 ? "bluff-after-value" : "bluff";
     else if (strength >= 0.65)
       reason = model.ownShownBluffs > 0 ? "value-after-bluff" : "value";
+    if (difficulty === "hard" && chosen.action.type === "raise") {
+      if (view.raises >= 1) reason = "re-raise";
+      else if (view.actions.some(a => a.player === view.viewer && a.action.type === "check"))
+        reason = "check-raise";
+    }
   }
   return {
     action: chosen.action,

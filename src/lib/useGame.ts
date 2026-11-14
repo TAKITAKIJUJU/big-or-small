@@ -15,6 +15,7 @@ import {
   type Settings,
 } from "./session";
 import { playSound, syncAmbient } from "./audio";
+import { requestBotAction } from "./bot-client";
 export function useGame() {
   const initial = useRef<ReturnType<typeof load> | null>(null);
   initial.current ??= load();
@@ -22,6 +23,7 @@ export function useGame() {
     [state, setState] = useState(initial.current.state),
     [notice, setNotice] = useState(initial.current.notice);
   const internal = useRef(state),
+    pendingBot = useRef<{ state: typeof state; cancel: () => void } | null>(null),
     session = useRef<Session | null>(initial.current.session),
     settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -37,6 +39,7 @@ export function useGame() {
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
+      pendingBot.current?.cancel();
     },
     [],
   );
@@ -93,6 +96,8 @@ export function useGame() {
     }
   }
   function newGame(config: Settings) {
+    pendingBot.current?.cancel();
+    pendingBot.current = null;
     setRevealPending(false);
     let next = createGame(config.allIn);
     const decision = decideCard(
@@ -136,6 +141,10 @@ export function useGame() {
         ),
       };
   }
+  function cancelBot() {
+    pendingBot.current?.cancel();
+    pendingBot.current = null;
+  }
   function step(expected: number) {
     const s = internal.current;
     if (!s || s.revision !== expected) return;
@@ -152,6 +161,19 @@ export function useGame() {
       recordDecision(decision.log);
     } else if (s.phase === "drawing") dispatch({ type: "draw" }, expected);
     else if (s.phase === "betting" && s.turn === "bot") {
+      if (pendingBot.current?.state === s) return;
+      pendingBot.current?.cancel();
+      if (settings.difficulty === "hard") {
+        const cancel = requestBotAction(getPlayerView(s, "bot", false), settings.difficulty, secureRandom(), (decision) => {
+          // 再戦・再開・別の手番へ進んだ後の返答を適用しない。revisionの一致だけでは不十分。
+          if (internal.current !== s) return;
+          pendingBot.current = null;
+          dispatch({ type: "act", player: "bot", action: decision.action }, expected);
+          recordDecision(decision.log);
+        });
+        pendingBot.current = { state: s, cancel };
+        return;
+      }
       const decision = decideAction(
         getPlayerView(s, "bot", false),
         settings.difficulty,
@@ -177,6 +199,7 @@ export function useGame() {
     newGame,
     humanCommand,
     step,
+    cancelBot,
     busy,
     revealPending,
     completeReveal: () => setRevealPending(false),
