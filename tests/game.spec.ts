@@ -1,3 +1,4 @@
+import { comebackFixture } from "./fixtures";
 import { test, expect, type Page } from "@playwright/test";
 const settings = {
   difficulty: "easy",
@@ -90,6 +91,14 @@ test("3D描画と全幅のホーム・選札・設定、横溢れがない", asy
 });
 test("実操作で13ラウンド完走し履歴・再戦", async ({ page }) => {
   await setup(page, { tutorialSeen: false });
+  await page.addInitScript(() =>
+    Object.defineProperty(crypto, "getRandomValues", {
+      value: (array: Uint32Array) => {
+        array.fill(0);
+        return array;
+      },
+    }),
+  );
   await start(page);
   for (let round = 1; round <= 13; round++) {
     await expect(
@@ -275,4 +284,78 @@ test("スマホ横向きでは縦向きの案内を出し、戻すと再開で�
     page.getByRole("button", { name: /9 の札を伏せる/ }),
   ).toBeEnabled();
   await context.close();
+});
+
+test("参加料が2から4へ増え、次の参加料を確定前に読める", async ({ page }) => {
+  await setup(page);
+  await page.addInitScript(() =>
+    Object.defineProperty(crypto, "getRandomValues", {
+      value: (array: Uint32Array) => {
+        array.fill(0);
+        return array;
+      },
+    }),
+  );
+  await start(page);
+  await expect(page.locator(".ante-status")).toContainText("参加料 2");
+  await expect(page.locator(".ante-status")).toContainText("次 4");
+  await select(page);
+  await finishRound(page);
+  await expect(page.locator(".ante-status")).toContainText("参加料 4");
+  await expect(page.locator(".pot")).toContainText("8");
+});
+test("公開された合法ログから終盤の一勝で逆転する", async ({ page }) => {
+  const { session } = comebackFixture();
+  await page.addInitScript(
+    (s) => localStorage.setItem("usotuki.v1", JSON.stringify(s)),
+    { version: 1, settings, session },
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "対戦を再開" }).click();
+  await expect(page.locator(".ante-status")).toContainText("参加料 40");
+  await page.getByRole("button", { name: /^コール/ }).click();
+  await expect(page.locator(".comeback-label")).toHaveText("この勝負で逆転");
+  await expect(page.locator(".scoreboard")).toContainText("320");
+  await expect(page.locator(".scoreboard")).toContainText("280");
+  await page.screenshot({ path: "test-results/comeback.png" });
+});
+test("最大額は選択だけで、賭ける前に勝敗時の増減が読める", async ({ page }) => {
+  await setup(page);
+  await start(page);
+  await select(page);
+  await expect(
+    page.getByRole("group", { name: "ベット額の候補" }),
+  ).toBeVisible();
+  const before = await page.locator(".scoreboard").textContent();
+  await page.getByRole("button", { name: /^最大/ }).click();
+  await expect(page.locator(".stake-risk")).toContainText(
+    "勝ち +22 / 負け −22",
+  );
+  await expect(page.locator(".scoreboard")).toHaveText(before!);
+  await page.screenshot({ path: "test-results/stakes-bet.png" });
+});
+
+test("全額勝負で0になったら実際の終了ラウンドで結果を出す", async ({
+  page,
+}) => {
+  const { session } = comebackFixture();
+  for (const entry of session.entries.slice(-4)) {
+    if (entry.command.type === "select")
+      entry.command.card = entry.command.player === "human" ? 10 : 13;
+  }
+  await page.addInitScript(
+    (s) => localStorage.setItem("usotuki.v1", JSON.stringify(s)),
+    { version: 1, settings, session },
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "対戦を再開" }).click();
+  await page.getByRole("button", { name: /^コール/ }).click();
+  await expect(
+    page.getByRole("button", { name: "対戦の結果へ" }),
+  ).toBeVisible();
+  await page.waitForTimeout(190);
+  await page.getByRole("button", { name: "対戦の結果へ" }).click();
+  await expect(page.locator(".final-result")).toContainText("10ラウンド終了");
+  await expect(page.locator(".round-counter strong")).toContainText("10");
+  await expect(page.locator(".ante-status")).not.toContainText("次");
 });

@@ -81,6 +81,7 @@ test("高画質の影・DPRと操作応答を記録", async ({ page }) => {
 test("コンテキスト喪失でも選札と試合を維持", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "対戦をはじめる" }).click();
+  await expect(page.locator(".scene-loading")).toHaveCount(0);
   await page
     .getByRole("button", { name: "カード9を選択", exact: true })
     .click();

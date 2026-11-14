@@ -102,7 +102,11 @@ export function useGame() {
     );
     const command: GameCommand = { type: "select", player: "bot", card };
     next = transition(next, command);
-    session.current = { allIn: config.allIn, entries: [{ command }] };
+    session.current = {
+      ruleset: next.ruleset,
+      allIn: config.allIn,
+      entries: [{ command }],
+    };
     internal.current = next;
     setState(next);
     setNotice("");

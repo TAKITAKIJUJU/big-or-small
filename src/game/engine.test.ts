@@ -19,7 +19,7 @@ function rng(seed = 19) {
   };
 }
 function betting(human = 7, bot = 8, roll = 0.1, allIn = false) {
-  let s = createGame(allIn);
+  let s = createGame(allIn, "classic");
   s = transition(s, { type: "select", player: "bot", card: bot });
   s = transition(s, { type: "select", player: "human", card: human });
   return transition(s, { type: "draw" }, () => roll);
@@ -247,7 +247,7 @@ describe("Botの秘密情報境界・保存", () => {
       },
       { command: { type: "draw" as const }, roll: 0.8 },
     ];
-    let s = createGame();
+    let s = createGame(false, "classic");
     for (const e of entries) s = transition(s, e.command, () => e.roll ?? 0);
     expect(replay({ allIn: false, entries })).toEqual(s);
   });
