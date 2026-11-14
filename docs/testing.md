@@ -4,17 +4,17 @@
 
 ## 実行結果
 
-| コマンド                                    | 結果                                               |
-| ------------------------------------------- | -------------------------------------------------- |
-| npm install                                 | 成功、package-lock.json生成                        |
-| npm run typecheck                           | 成功、TypeScript strict                            |
-| npm run lint                                | 成功、エラー・警告0                                |
-| npm run test                                | 17件成功。うち600試合の合法ランダム対局            |
-| npm run build                               | 成功、dist生成。Three.jsの大きなチャンク警告あり   |
-| npm run test:e2e                            | 13件すべて成功、約2.3分。造形調整後の画面2件も成功 |
-| npm audit --omit=dev --audit-level=high     | 実行時依存の脆弱性0件（その時点のDB）              |
-| git diff --check                            | 成功                                               |
-| sites-preview start /workspace/big-or-small | 失敗。relayの4173ポート接続準備がタイムアウト      |
+| コマンド                                    | 結果                                             |
+| ------------------------------------------- | ------------------------------------------------ |
+| npm install                                 | 成功、package-lock.json生成                      |
+| npm run typecheck                           | 成功、TypeScript strict                          |
+| npm run lint                                | 成功、エラー・警告0                              |
+| npm run test                                | 最新27件成功。600試合の合法ランダム対局を含む    |
+| npm run build                               | 成功、dist生成。Three.jsの大きなチャンク警告あり |
+| npm run test:e2e                            | ローカル17経路、本番4件成功（末尾参照）          |
+| npm audit --omit=dev --audit-level=high     | 実行時依存の脆弱性0件（その時点のDB）            |
+| git diff --check                            | 成功                                             |
+| sites-preview start /workspace/big-or-small | 失敗。relayの4173ポート接続準備がタイムアウト    |
 
 縦画面・NPC・UIの変更後に13件の全経路を検査。NPCの顔と衣服を整えた後、各画面幅と高画質描画の2件を追加で再確認した。ルールの変更はなく、17件の単体検査と600試合のシミュレーションも成功。
 
@@ -99,3 +99,9 @@
 13回完走のブラウザ検査はテスト環境だけで乱数を固定し、両者同数の札で進行する。大きい賭けを続けても全13回を検査できるようにするためで、製品の暗号乱数やNPCにテスト用の分岐は追加していない。逆転検査も再生用の合法ログを使い、製品のBotを有利・不利に補正していない。
 
 Android実機未検証。数値の楽しさ・対戦時間・難易度のバランスは継続したプレイで調整する。検証画像は `/workspace/artifacts/usotuki/escalating-stakes/`。
+
+### 参加料上昇版の本番確認
+
+同じ https://usotuki.app/ に公開済み。配信7ファイルがビルドと一致。公開URLで「13ラウンド完走」「参加料2→4」「160対440から320対280の逆転」「途中0で実際の終了ラウンドを表示」の4件すべて成功（約51秒）。
+
+コマンド：`PLAYWRIGHT_BASE_URL=https://usotuki.app npm run test:e2e -- --grep '参加料が2|公開された合法ログ|実操作で13|全額勝負で0'`
