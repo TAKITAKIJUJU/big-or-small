@@ -89,3 +89,19 @@ GitHubの自動ビルド連携は未設定。導入時は既存 `TAKITAKIJUJU/bi
 2026-11-14、同じ静的配信へ更新。ソース`138d63f`、ビルド`3a229f4`、deployment `240e3f523e304645b2b640c7739d5eb9`。配信7ファイルのバイト一致を確認。
 
 本番URLで13回完走・実際の判断記録の表示・対戦中の記録非表示・終了後の開示設定・再読込から前の対戦の記録を開く3件が成功（約45秒）。NPCの推定はブラウザ内だけで実行し、新しいAPI、LLM、サーバー処理、DB、DNS変更、プラン変更は追加していない。Android実機未検証。
+
+## 上級NPCの反復探索版の公開更新
+
+2026-11-14、既存の静的Bot版を同じ https://usotuki.app/ に更新した。
+
+- ソース：`34b3654f71d31ac27910c5aea9094b516125bb01`（codex/usotuki-3d-bot）
+- 配信ビルド：`82c2152d317b4324d19506f60a46b3d092a2acf3`（codex/usotuki-static-release）
+- deployment：`596320817446476ca855a9bd5f998379`
+- 前回：`240e3f523e304645b2b640c7739d5eb9`
+- 静的8ファイルが公開URLの配信とバイト一致。増えたファイルはブラウザ内の探索用Web Worker（約14.2KB）。Cloudflare側は引き続きassets-only、has_modules=false、動的コードなし、run_worker_first=false、bindingsなし、Worker Cache無効。
+- 既存ドメイン・DNS・プラン・API・DBは変更しない。ゲームの推定・反復探索・乱数はブラウザ内。新規設定は上級だが、既存の難易度設定は保存どおり引き継ぐ。
+- 公開URLで上級13回完走、対戦中の判断ログ非表示、終了後のログ保存・開示設定、Workerへ秘密札を送らない、Worker不可時の継続、計算中の再戦の6件が成功（約1.1分）。
+
+実行：`PLAYWRIGHT_BASE_URL=https://usotuki.app npm run test:e2e -- --grep '実操作で13|上級は実際|Workerを起動|上級の計算中|対戦中はNPC|終了後の判断'`
+
+旧上級に対する勝率比較は公開ブラウザの試験とは別に、純粋エンジンと固定seedで実施した。241勝2分157敗はその400戦の結果で、プレイヤー全員への勝率ではない。Android実機未検証。配信用ZIPと公開画面は `/workspace/artifacts/usotuki/strong-npc/`。
