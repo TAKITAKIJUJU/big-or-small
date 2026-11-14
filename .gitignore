@@ -147,3 +147,12 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+node_modules/
+dist/
+*.tsbuildinfo
+test-results/
+playwright-report/
+.cloudflare/
+.env*
+!.env.example
