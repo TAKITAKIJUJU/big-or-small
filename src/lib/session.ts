@@ -97,7 +97,7 @@ export function replay(session: Session): GameState {
     throw new Error("保存形式が不正です");
   if (
     session.ruleset !== undefined &&
-    !["classic", "pressure"].includes(session.ruleset)
+    !["classic", "pressure", "open"].includes(session.ruleset)
   )
     throw new Error("ルールの保存形式が不正です");
   // 公開済みv1のログは固定参加料のまま再生する。

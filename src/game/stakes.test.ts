@@ -30,7 +30,7 @@ function tieRound(s: GameState, n: number) {
 }
 describe("参加料上昇と一発逆転", () => {
   it("両者に同じ固定の参加料と追加上限、13ラウンドで毎回上昇", () => {
-    let s = createGame();
+    let s = createGame(false, "pressure");
     for (let r = 1; r <= 13; r++) {
       expect(s.ante).toBe(ANTES[r - 1]);
       expect(s.betLimit).toBe(BET_LIMITS[r - 1]);
@@ -67,7 +67,7 @@ describe("参加料上昇と一発逆転", () => {
     assertInvariants(result);
   });
   it("参加料の不足は残額で参加でき、1枚の勝負を残す", () => {
-    let s = tieRound(createGame(), 1);
+    let s = tieRound(createGame(false, "pressure"), 1);
     s.chips = { human: 3, bot: 597 };
     s = transition(s, { type: "next" });
     expect(s.round).toBe(2);
@@ -85,7 +85,7 @@ describe("参加料上昇と一発逆転", () => {
     assertInvariants(s);
   });
   it("残額が同じ奇数でも同数は整数で分配し、0以外は続けられる", () => {
-    let s = tieRound(createGame(), 1);
+    let s = tieRound(createGame(false, "pressure"), 1);
     s.chips = { human: 1, bot: 599 };
     s = transition(s, { type: "next" });
     expect(s.ante).toBe(1);
@@ -95,7 +95,7 @@ describe("参加料上昇と一発逆転", () => {
     assertInvariants(s);
   });
   it("参加料の最後の勝負に負けて0なら終了、次の参加料を請求しない", () => {
-    let s = tieRound(createGame(), 1);
+    let s = tieRound(createGame(false, "pressure"), 1);
     s.chips = { human: 3, bot: 597 };
     s = transition(s, { type: "next" });
     s = transition(s, { type: "select", player: "bot", card: 13 });

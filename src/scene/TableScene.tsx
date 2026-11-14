@@ -258,7 +258,8 @@ function MovingChips({
       1.14 + Math.sin(t * Math.PI) * 0.3,
       THREE.MathUtils.lerp(start, end, t),
     );
-    group.current.visible = moving && t < 1;
+    const carryOnly = settling && (view?.history.at(-1)?.carried ?? 0) > 0 && (view?.history.at(-1)?.refunded.human ?? 0) === 0;
+    group.current.visible = moving && !carryOnly && t < 1;
     if (splitGroup.current) {
       splitGroup.current.position.set(
         -0.2,
@@ -266,7 +267,7 @@ function MovingChips({
         THREE.MathUtils.lerp(0, -1.5, t),
       );
       splitGroup.current.visible =
-        !!settling && view?.history.at(-1)?.winner === "tie" && moving && t < 1;
+        !!settling && !carryOnly && view?.history.at(-1)?.winner === "tie" && moving && t < 1;
     }
   });
   return (

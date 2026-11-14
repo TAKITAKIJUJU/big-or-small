@@ -145,6 +145,9 @@ export function solveBetting(view: PlayerView, iterations = 128): SearchResult {
           amount = next.chips[own] + refund + (p === enemy ? matchedPot : 0);
         return build(next, depth + 1, [amount, amount, amount]);
       }
+      // openの同数は追加分を返して参加料を持ち越す。
+      // その継続価値は未決着プールの1/2と近似するので、評価上の同数額は同じ。
+      // エンジンの実際の精算・残チップは必ず別に保持する。
       if (action.type === "call" || (action.type === "check" && s.checks === 1))
         return build(next, depth + 1, [next.chips[own] + next.pot, next.chips[own], next.chips[own] + next.pot / 2]);
       next.checks = action.type === "check" ? s.checks + 1 : 0;

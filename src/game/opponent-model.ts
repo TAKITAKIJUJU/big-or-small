@@ -65,10 +65,10 @@ function fraction(record: ActionRecord, cap: number) {
     ? clamp(record.action.total / Math.max(1, cap), 0, 1)
     : 0;
 }
-function cardPrior(card: number, round: number, reserve: number) {
+function cardPrior(card: number, round: number, reserve: number, mode?: Mode | null) {
   const pole = Math.abs(card - 7) / 6;
   return (
-    0.3 + Math.exp(clamp((round - 7) / 5, -1.2, 1.2) * reserve * pole * 1.8)
+    (0.3 + Math.exp(clamp((round - 7) / 5, -1.2, 1.2) * reserve * pole * 1.8)) * (mode ? 0.3 + Math.exp(rankStrength(card, mode) * 1.8) : 1)
   );
 }
 /** 公開行動の尤度。最大額は強い札と弱いブラフの両峰を残し、断定しない。 */
@@ -253,7 +253,7 @@ export function analysePlayer(view: PlayerView, opponent: Player): OpponentModel
       fixed = round.reason === "showdown" ? round.cards[opponent] : null,
       next = new Float64Array(8192);
     const prior = Array.from({ length: 13 }, (_, n) =>
-      cardPrior(n + 1, round.round, reserve),
+      cardPrior(n + 1, round.round, reserve, view.ruleset === "open" ? round.mode : null),
     );
     const likelihood = Array.from({ length: 13 }, (_, n) =>
       actionLikelihood(
@@ -280,7 +280,7 @@ export function analysePlayer(view: PlayerView, opponent: Player): OpponentModel
   }
   const weights = new Float64Array(13),
     prior = Array.from({ length: 13 }, (_, n) =>
-      cardPrior(n + 1, view.round, reserve),
+      cardPrior(n + 1, view.round, reserve, view.ruleset === "open" ? view.mode : null),
     );
   const currentCap = Math.max(
     1,

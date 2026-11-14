@@ -85,7 +85,8 @@ test("上級の計算中に再戦しても、前の試合の返答が混ざら�
   await expect(page.getByRole("group", { name: "あなたの手札" }).getByRole("button")).toHaveCount(13);
   await page.waitForTimeout(3500);
   const session = await page.evaluate(() => JSON.parse(localStorage.getItem("usotuki.v1")!).session);
-  expect(session.entries).toHaveLength(1);
-  expect(session.entries[0].command.type).toBe("select");
+  expect(session.entries).toHaveLength(2);
+  expect(session.entries[0].command.type).toBe("draw");
+  expect(session.entries[1].command.type).toBe("select");
   expect(session.botDecisions).toHaveLength(1);
 });

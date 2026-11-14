@@ -39,6 +39,8 @@ export interface RoundRecord {
   reason: "showdown" | "fold";
   pot: number;
   refunded: Pair<number>;
+  carryIn: number;
+  carried: number;
   delta: Pair<number>;
   actions: ActionRecord[];
 }
@@ -57,6 +59,7 @@ export interface GameState {
   selected: Pair<number | null>;
   contributions: Pair<number>;
   pot: number;
+  carryPot: number;
   mode: Mode | null;
   turn: Player;
   checks: number;
@@ -85,6 +88,7 @@ export interface PlayerView {
   canContinue: boolean;
   chips: Pair<number>;
   pot: number;
+  carryPot: number;
   hand: number[];
   ownCard: number | null;
   opponentCommitted: boolean;
@@ -109,7 +113,7 @@ export const matchWinner = (s: Pick<GameState, "chips">): Player | "tie" =>
       : "bot";
 export function createGame(
   allIn = false,
-  ruleset: Ruleset = "pressure",
+  ruleset: Ruleset = "open",
 ): GameState {
   const s: GameState = {
     version: 1,
@@ -126,6 +130,7 @@ export function createGame(
     selected: { human: null, bot: null },
     contributions: { human: 0, bot: 0 },
     pot: 0,
+    carryPot: 0,
     mode: null,
     turn: "human",
     checks: 0,
@@ -155,8 +160,8 @@ function ante(s: GameState) {
   s.roundStart = { ...s.chips };
   s.chips.human -= s.ante;
   s.chips.bot -= s.ante;
-  s.pot = 2 * s.ante;
-  s.phase = "selecting";
+  s.pot = s.carryPot + 2 * s.ante;
+  s.phase = s.ruleset === "open" ? "drawing" : "selecting";
   s.selected = { human: null, bot: null };
   s.contributions = { human: 0, bot: 0 };
   s.mode = null;
@@ -204,7 +209,7 @@ export function getLegalActions(s: BettingPosition, p: Player): BetAction[] {
   for (let total = target + 2; total <= cap; total += 2) amounts.push(total);
   // 有効スタックの端数のみ例外。相手に支払えない額は要求しない。
   if (
-    (s.allIn || s.ruleset === "pressure") &&
+    (s.allIn || s.ruleset !== "classic") &&
     cap > target &&
     !amounts.includes(cap)
   )
@@ -250,12 +255,27 @@ function settle(s: GameState, folded?: Player) {
       : (s.mode === "BIG" ? cards.human > cards.bot : cards.human < cards.bot)
         ? "human"
         : "bot";
-  const pot = s.pot;
-  if (winner === "tie") {
+  const pot = s.pot, carryIn = s.carryPot;
+  s.carryPot = 0;
+  if (winner === "tie" && s.ruleset === "open") {
+    // 同数では追加ベットを全額返す。参加料と以前の持越分だけを残す。
+    for (const p of ["human", "bot"] as const) {
+      s.chips[p] += matched;
+      refunded[p] += matched;
+      s.contributions[p] = 0;
+    }
+    const pool = pot - 2 * matched;
+    if (s.round < 13 && Math.min(s.chips.human, s.chips.bot) > 0)
+      s.carryPot = pool;
+    else {
+      s.chips.human += pool / 2;
+      s.chips.bot += pool / 2;
+    }
+  } else if (winner === "tie") {
     s.chips.human += pot / 2;
     s.chips.bot += pot / 2;
   } else s.chips[winner] += pot;
-  s.pot = 0;
+  s.pot = s.carryPot;
   for (const p of ["human", "bot"] as const)
     s.hands[p] = s.hands[p].filter((c) => c !== cards[p]);
   s.history.push({
@@ -267,6 +287,8 @@ function settle(s: GameState, folded?: Player) {
     winner,
     reason: folded ? "fold" : "showdown",
     pot,
+    carryIn,
+    carried: s.carryPot,
     refunded,
     delta: {
       human: s.chips.human - s.roundStart.human,
@@ -279,7 +301,7 @@ function settle(s: GameState, folded?: Player) {
     type: "settled",
     text:
       winner === "tie"
-        ? "引き分け。ポットを分配"
+        ? s.carryPot > 0 ? `同数。追加ベットを返し、${s.carryPot}を次回へ持ち越し` : "引き分け。ポットを分配"
         : `${winner === "human" ? "あなた" : "NPC"}がポット${pot}を獲得`,
   });
 }
@@ -305,20 +327,22 @@ export function transition(
         type: "committed",
         text: `${player === "human" ? "あなた" : "NPC"}が札を伏せた`,
       });
-      if (s.selected.human !== null && s.selected.bot !== null)
-        s.phase = "drawing";
+      if (s.selected.human !== null && s.selected.bot !== null) {
+        s.phase = s.ruleset === "open" ? "betting" : "drawing";
+        if (s.ruleset === "open" && (s.chips.human === 0 || s.chips.bot === 0)) settle(s);
+      }
       break;
     }
     case "draw": {
       if (s.phase !== "drawing")
-        throw new Error("抽選は双方の確定後に一度だけ行います");
+        throw new Error("現在は抽選できません");
       const roll = rng();
       if (!Number.isFinite(roll) || roll < 0 || roll >= 1)
         throw new Error("乱数が範囲外です");
       s.mode = roll < 0.5 ? "BIG" : "SMALL";
-      s.phase = "betting";
+      s.phase = s.ruleset === "open" ? "selecting" : "betting";
       s.events.push({ type: "drawn", text: s.mode });
-      if (s.chips.human === 0 || s.chips.bot === 0) settle(s);
+      if (s.ruleset !== "open" && (s.chips.human === 0 || s.chips.bot === 0)) settle(s);
       break;
     }
     case "act": {
@@ -383,9 +407,13 @@ export function assertInvariants(s: GameState) {
   }
   if (
     ["selecting", "drawing", "betting"].includes(s.phase) &&
-    s.pot !== s.ante * 2 + s.contributions.human + s.contributions.bot
+    s.pot !== s.carryPot + s.ante * 2 + s.contributions.human + s.contributions.bot
   )
     throw new Error("参加料・追加拠出とポットが一致しません");
+  if (!Number.isInteger(s.carryPot) || s.carryPot < 0 || s.carryPot > s.pot)
+    throw new Error("持越ポットが不正です");
+  if ((s.phase === "resolved" && s.pot !== s.carryPot) || (s.phase === "finished" && s.pot !== 0))
+    throw new Error("未精算のポットが残っています");
   if (s.history.length > 13) throw new Error("ラウンド数が不正です");
 }
 export function getPlayerView(
@@ -442,6 +470,7 @@ export function getPlayerView(
         : null,
     chips: { ...s.chips },
     pot: s.pot,
+    carryPot: s.carryPot,
     hand: [...s.hands[viewer]],
     ownCard: s.selected[viewer],
     opponentCommitted: s.selected[other(viewer)] !== null,

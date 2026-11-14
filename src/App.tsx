@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { actionText, type BetAction, type PlayerView } from "./game/engine";
-import { ANTES, BET_LIMITS } from "./game/stakes";
+import { ANTES } from "./game/stakes";
 import { REASON_TEXT, type BotLog } from "./game/bot";
 import { useGame } from "./lib/useGame";
 import { unlockAudio } from "./lib/audio";
@@ -94,18 +94,18 @@ function Rules() {
   return (
     <div className="prose">
       <p>
-        13枚を一度ずつ使い、最後に多くのチップを残した方の勝ちです。参加料も賭けられる額も、ラウンドが進むほど上がります。
+        13枚を一度ずつ使い、最後に多くのチップを残した方の勝ちです。参加料はラウンドごとに上がります。追加ベットは最初から、双方が払える有効スタックまで。
       </p>
       <ol>
         <li>
           双方が参加料を出します。支払った分はポットに入り、勝者が受け取ります。
         </li>
-        <li>カードを1枚ずつ伏せて確定。NPCも抽選前に確定します。</li>
+        <li>BIG／SMALLを公開してからカードを1枚ずつ伏せて確定。NPCも同じ条件で選びます。</li>
         <li>
           BIGなら大きい数字、SMALLなら小さい数字が勝ち。毎回50%ずつの独立抽選です。
         </li>
         <li>
-          抽選後に賭ける額を決めます。双方チェック、またはコールでカードを公開。
+          双方の選札後に賭ける額を決めます。双方チェック、またはコールでカードを公開。
         </li>
         <li>降りたらポットを譲り、両方のカードを非公開で使い終えます。</li>
       </ol>
@@ -122,13 +122,13 @@ function Rules() {
             <tr key={i}>
               <td>{i + 1}</td>
               <td>{fee}</td>
-              <td>{BET_LIMITS[i] ?? "有効スタック"}</td>
+              <td>有効スタック</td>
             </tr>
           ))}
         </tbody>
       </table>
       <p>
-        参加料に足りない場合は、少ない側の残額を双方が出して最後の勝負に参加します。参加料だけで全額になったら、選札・抽選後に自動で公開します。どちらかの所持チップが0になるか、13回で終了です。
+        参加料に足りない場合は、少ない側の残額を双方が出して最後の勝負に参加します。参加料だけで全額になったら、抽選・選札後に自動で公開します。どちらかの所持チップが0になるか、13回で終了です。
       </p>
       <dl>
         <dt>チェック</dt>
@@ -143,13 +143,13 @@ function Rules() {
         <dd>降りてポットを譲る。カードは非公開。</dd>
       </dl>
       <p>
-        追加額は原則2刻み。相手が払える額が上限です。残額の端数だけ例外で、受けられなかった差額は返します。同数の札はポットを半分ずつ受け取ります。
+        追加額は原則2刻み。相手が払える額が上限です。残額の端数だけ例外で、受けられなかった差額は返します。同数なら追加ベットは双方へ全額返還。参加料と以前の持越分を次へ残します。最終回や、返還後もどちらかが参加できない場合は折半します。
       </p>
       <p>
-        最終回は有効スタックまで賭けられます。設定で「全ラウンドで全額勝負」をONにすると、最初からこの制限になります。「最大」は額を選ぶ操作で、ベット／レイズを押すまでチップは出ません。
+        全ラウンドで有効スタックまで賭けられます。「最大」は額を選ぶ操作で、ベット／レイズを押すまでチップは出ません。
       </p>
       <small>
-        古い保存試合は参加料2・追加上限20の旧ルールを維持します。新しい対戦から参加料上昇が適用されます。チップはゲーム内だけの数値で、現実のお金・課金・換金・賞金はありません。
+        以前の保存試合は当時の抽選順・上限・同数時の精算を維持します。新しい対戦から新ルールを適用します。チップはゲーム内だけの数値で、現実のお金・課金・換金・賞金はありません。
       </small>
     </div>
   );
@@ -239,15 +239,8 @@ function SettingsPanel({
           }}
         />
       </label>
-      <label className="toggle">
-        全ラウンドで全額勝負（次の対戦から）
-        <input
-          type="checkbox"
-          checked={settings.allIn}
-          onChange={(e) => update("allIn", e.target.checked)}
-        />
-      </label>
-      {inMatch && <small>進行中の対戦の上限は変更されません。</small>}
+      {inMatch && <small>以前の保存試合の上限は、対戦中には変更しません。</small>}
+      <small>新しい対戦は全ラウンドで有効スタックまで賭けられます。以前の保存試合は当時の上限を維持します。</small>
       <label className="toggle">
         試合終了後に全カードを開示
         <input
@@ -297,7 +290,7 @@ function History({
                   {r.reason === "fold"
                     ? "フォールド"
                     : r.winner === "tie"
-                      ? "引き分け"
+                      ? r.carried > 0 ? `${r.carried}持ち越し` : "引き分け"
                       : "札を公開"}
                 </small>
               </span>
@@ -465,8 +458,9 @@ function Betting({
           <p className="stake-risk">
             この額で双方が勝負したら{" "}
             <b>
-              勝ち +{view.ante + total} / 負け −{view.ante + total}
+              勝ち +{view.ante + total + view.carryPot} / 負け −{view.ante + total}
             </b>
+            {view.ruleset === "open" && <small>同数は追加分を返還し、参加料は次回へ。最終回は折半。</small>}
           </p>
         </>
       )}
@@ -628,14 +622,14 @@ export default function App() {
               : "NPCが考えています…"
             : view.phase === "resolved"
               ? last?.winner === "tie"
-                ? "このラウンドは引き分け"
+                ? last.carried > 0 ? `${last.carried}を次回へ持ち越し` : "このラウンドは引き分け"
                 : last?.winner === "human"
                   ? "このラウンドはあなたの勝ち"
                   : "このラウンドはNPCの勝ち"
               : "対戦終了";
   const tutorialText =
     view?.phase === "selecting"
-      ? "数字を選んで、カードを伏せます。選んだカードは一度だけ使えます。"
+      ? `${view.mode ?? "公開された条件"}を見て数字を選び、カードを伏せます。選んだカードは一度だけ使えます。`
       : view?.phase === "drawing"
         ? "BIGは大きい数字、SMALLは小さい数字の勝ちです。"
         : view?.phase === "betting"
@@ -652,7 +646,7 @@ export default function App() {
             view={view}
             candidate={candidate}
             onSelect={(n) => {
-              if (!modal && !game.busy) {
+              if (!modal && !game.busy && !game.revealPending) {
                 unlockAudio();
                 setCandidate(n);
               }
@@ -808,6 +802,7 @@ export default function App() {
                 </span>
                 <span className="ante-status">
                   参加料 <b>{view.ante}</b>
+                  {view.carryPot > 0 && <small>持越 {view.carryPot}</small>}
                   {view.nextScheduledAnte !== null && (
                     <> → 次 {view.nextScheduledAnte}</>
                   )}
@@ -826,7 +821,7 @@ export default function App() {
               >
                 <span>
                   {fallback ? "軽量表示 · " : ""}
-                  {view.ruleset === "classic" ? "旧ルール · " : ""}追加上限{" "}
+                  {view.ruleset !== "open" ? "旧ルール · " : ""}追加上限{" "}
                   {view.betLimit ?? "有効スタック"}
                 </span>
                 <button
@@ -843,9 +838,9 @@ export default function App() {
                 className={`control-panel ${view.phase === "finished" ? "end-panel" : ""}`}
                 aria-label="対戦操作"
               >
-                {view.ruleset === "classic" && (
+                {view.ruleset !== "open" && (
                   <p className="legacy-note">
-                    旧ルールで再開中。新しい対戦から参加料が上がります。
+                    以前のルールで再開中。新しい対戦から抽選先行・同数持ち越しになります。
                   </p>
                 )}
                 {tutorial && (
@@ -869,7 +864,7 @@ export default function App() {
                     ?
                   </button>
                 </div>
-                {view.phase === "selecting" && (
+                {view.phase === "selecting" && !game.revealPending && (
                   <>
                     <div className="hand-label">
                       <span>
@@ -926,7 +921,7 @@ export default function App() {
                     <span className="spinner" />
                     <p>
                       BIG / SMALL は毎回 50% / 50%
-                      <small>あなたの札：{view.ownCard} · 確定済み</small>
+                      <small>{view.ruleset === "open" ? "公開された条件を見て、次に札を選びます" : `あなたの札：${view.ownCard} · 確定済み`}</small>
                     </p>
                   </div>
                 )}
@@ -976,9 +971,9 @@ export default function App() {
                           {last.reason === "fold"
                             ? "両者の札を非公開で廃棄"
                             : "両者の札を公開"}{" "}
-                          · ポット {last.pot}
+                          · ポット {last.pot}{last.carried > 0 ? ` / 持ち越し ${last.carried}` : ""}
                           {last.refunded.human > 0
-                            ? ` / 差額${last.refunded.human}を返還`
+                            ? ` / ${last.refunded.human}を返還`
                             : ""}
                         </small>
                       </div>

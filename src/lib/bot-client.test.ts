@@ -5,7 +5,7 @@ import { decideAction } from "../game/bot";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 function view() {
-  let s = createGame();
+  let s = createGame(false, "pressure");
   for (const player of ["bot", "human"] as const)
     s = transition(s, { type: "select", player, card: 7 });
   s = transition(s, { type: "draw" }, () => 0);

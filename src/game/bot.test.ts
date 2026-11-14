@@ -22,7 +22,7 @@ function play(s: GameState, c: GameCommand, roll = 0) {
   return transition(s, c, () => roll);
 }
 function revealHistory(cards: number[], modes: Mode[], aggressive = true) {
-  let s = createGame(true);
+  let s = createGame(true, "pressure");
   for (let i = 0; i < cards.length; i++) {
     s = play(s, { type: "select", player: "bot", card: cards[i] });
     s = play(s, { type: "select", player: "human", card: cards[i] });
@@ -65,7 +65,7 @@ const faceAllIn = (bluffer: boolean) =>
   getPlayerView(faceAllInState(bluffer), "bot", false);
 describe("相手を読むNPC", () => {
   it("初手は13分の1均等ではなく、後半のための温存に重みがある", () => {
-    const v = getPlayerView(createGame(), "bot", false),
+    const v = getPlayerView(createGame(false, "pressure"), "bot", false),
       policy = cardPolicy(v, "hard");
     expect(policy).toHaveLength(13);
     expect(policy.reduce((s, c) => s + c.probability, 0)).toBeCloseTo(1);
@@ -75,7 +75,7 @@ describe("相手を読むNPC", () => {
     expect(policy.every((x) => x.probability > 0)).toBe(true);
   });
   it("残額が少なく先を待てないときは、温存していた極端な札の使用が増える", () => {
-    let s = createGame();
+    let s = createGame(false, "pressure");
     for (let r = 1; r <= 8; r++) {
       s = play(s, { type: "select", player: "bot", card: r });
       s = play(s, { type: "select", player: "human", card: r });
@@ -153,7 +153,7 @@ describe("相手を読むNPC", () => {
     expect(analyseOpponent(copy).shownBets).toBe(0);
   });
   it("負けない最大札を持っていれば全額ベットでも降りない", () => {
-    let s = createGame(true);
+    let s = createGame(true, "pressure");
     s = play(s, { type: "select", player: "bot", card: 13 });
     s = play(s, { type: "select", player: "human", card: 12 });
     s = play(s, { type: "draw" });
@@ -199,7 +199,7 @@ describe("相手を読むNPC", () => {
         );
     expect(() => chooseAction(v, "hard", () => 1)).toThrow();
     expect(() =>
-      chooseCard(getPlayerView(createGame(), "bot"), "hard", () => NaN),
+      chooseCard(getPlayerView(createGame(false, "pressure"), "bot"), "hard", () => NaN),
     ).toThrow();
   });
   it("判断ログの保存は安全なコードだけに絞り、ルールの再生に影響しない", () => {
@@ -226,7 +226,7 @@ function estimateCall(view: ReturnType<typeof getPlayerView>) {
     .reduce((s, a) => s + a.probability, 0);
 }
 function facingHistory(fold: boolean, card = 5) {
-  let s = createGame();
+  let s = createGame(false, "pressure");
   for (let r = 1; r <= 4; r++) {
     s = play(s, { type: "select", player: "bot", card: r });
     s = play(s, { type: "select", player: "human", card: r });
