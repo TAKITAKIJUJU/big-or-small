@@ -24,7 +24,7 @@ async function setup(page: Page, extra = {}) {
 }
 async function start(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "卓につく" }).click();
+  await page.getByRole("button", { name: "対戦をはじめる" }).click();
   await expect(page.getByRole("group", { name: "あなたの手札" })).toBeVisible();
 }
 async function select(page: Page) {
@@ -38,7 +38,7 @@ async function select(page: Page) {
 async function finishRound(page: Page) {
   for (let i = 0; i < 12; i++) {
     const next = page.getByRole("button", {
-      name: /次のラウンド|対局の結果へ/,
+      name: /次のラウンド|対戦の結果へ/,
     });
     if (await next.isVisible()) {
       await next.click();
@@ -61,11 +61,11 @@ test("3D描画と全幅のホーム・選札・設定、横溢れがない", asy
     await page.setViewportSize({ width, height: width === 1280 ? 800 : 844 });
     if (width !== 320) await page.evaluate(() => localStorage.clear());
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "USOTUKI." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "USOTUKI" })).toBeVisible();
     await expect(page.locator("canvas")).toBeVisible();
     await page.waitForTimeout(800);
     await page.screenshot({ path: `test-results/home-${width}.png` });
-    await page.getByRole("button", { name: "卓につく" }).click();
+    await page.getByRole("button", { name: "対戦をはじめる" }).click();
     await expect(
       page.getByRole("group", { name: "あなたの手札" }).getByRole("button"),
     ).toHaveCount(13);
@@ -100,10 +100,10 @@ test("実操作で13ラウンド完走し履歴・再戦", async ({ page }) => {
   }
   await expect(page.locator(".final-result")).toContainText("13ラウンド終了");
   await page.screenshot({ path: "test-results/result.png" });
-  await page.getByRole("button", { name: "対局を振り返る" }).click();
+  await page.getByRole("button", { name: "対戦を振り返る" }).click();
   await expect(page.locator(".history-row")).toHaveCount(13);
   await page.getByRole("button", { name: "閉じる", exact: true }).click();
-  await page.getByRole("button", { name: "もう一度、卓へ" }).click();
+  await page.getByRole("button", { name: "もう一度対戦する" }).click();
   await expect(
     page.getByRole("group", { name: "あなたの手札" }).getByRole("button"),
   ).toHaveCount(13);
@@ -118,7 +118,7 @@ test("保存・再読込で再開、ルールとダイアログ中の停止", as
   await expect(page.locator(".mode-badge")).toHaveText(before!);
   await page.getByRole("button", { name: "閉じる", exact: true }).click();
   await page.reload();
-  await page.getByRole("button", { name: "対局を再開" }).click();
+  await page.getByRole("button", { name: "対戦を再開" }).click();
   await expect(page.locator(".round-counter")).toContainText("01");
   await expect(
     page.getByRole("group", { name: "あなたの手札" }),
@@ -147,7 +147,7 @@ test("WebGLが使えなくても選札から勝負できる", async ({ page }) =
   await finishRound(page);
   await expect(page.getByRole("group", { name: "あなたの手札" })).toBeVisible();
 });
-test("フォールドした番人の札をDOM履歴へ漏らさない", async ({ page }) => {
+test("フォールドしたNPCの札をDOM履歴へ漏らさない", async ({ page }) => {
   await page.addInitScript(
     (s) => localStorage.setItem("usotuki.v1", JSON.stringify(s)),
     {
@@ -178,10 +178,10 @@ test("フォールドした番人の札をDOM履歴へ漏らさない", async ({
     },
   );
   await page.goto("/");
-  await page.getByRole("button", { name: "対局を再開" }).click();
+  await page.getByRole("button", { name: "対戦を再開" }).click();
   await page.getByRole("button", { name: /^降りる/ }).click();
-  await expect(page.locator(".round-result")).toContainText("札は、闇の中へ。");
-  await page.getByRole("button", { name: "対局履歴" }).click();
+  await expect(page.locator(".round-result")).toContainText("フォールドで決着");
+  await page.getByRole("button", { name: "対戦履歴" }).click();
   await expect(page.locator(".history-row")).toContainText("非公開");
   await expect(page.locator(".history-row")).not.toContainText("12");
 });
@@ -206,7 +206,7 @@ test("短い画面でも確定ボタンが画面内、破損保存から開始�
     await expect(page.getByRole("status")).toContainText(
       "保存データを読み込めません",
     );
-    await page.getByRole("button", { name: "卓につく" }).click();
+    await page.getByRole("button", { name: "対戦をはじめる" }).click();
     const rect = await page
       .getByRole("button", { name: "一枚、選んでください" })
       .boundingBox();
@@ -217,7 +217,7 @@ test("短い画面でも確定ボタンが画面内、破損保存から開始�
   }
 });
 
-test("対局中のホームから実践チュートリアルを始め直せる", async ({ page }) => {
+test("対戦中のホームから実践チュートリアルを始め直せる", async ({ page }) => {
   await setup(page);
   await start(page);
   await page.getByRole("button", { name: "ホームへ戻る" }).click();
@@ -226,7 +226,53 @@ test("対局中のホームから実践チュートリアルを始め直せる",
     .click();
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "新しい対局を始める", exact: true })
+    .getByRole("button", { name: "新しい対戦を始める", exact: true })
     .click();
-  await expect(page.locator(".tutorial")).toContainText("①");
+  await expect(page.locator(".tutorial")).toContainText("数字を選んで");
+});
+
+test("縦画面の構成をPCでも維持し、不要な世界観を表示しない", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+  const size = await page.locator(".app").boundingBox();
+  expect(size!.width).toBeLessThanOrEqual(480);
+  expect(size!.height).toBeGreaterThan(size!.width);
+  await expect(page.locator(".app")).not.toContainText(
+    /番人|十三夜|運命|KEEPER|READ THE SILENCE/,
+  );
+  await page.getByRole("button", { name: "対戦をはじめる" }).click();
+  await expect(page.locator(".scoreboard")).toContainText("NPC");
+  await page.getByRole("button", { name: "カード7を選択" }).click();
+  await expect(
+    page.getByRole("button", { name: /7 の札を伏せる/ }),
+  ).toBeEnabled();
+});
+test("スマホ横向きでは縦向きの案内を出し、戻すと再開できる", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await context.newPage();
+  await setup(page);
+  await start(page);
+  await page.getByRole("button", { name: "カード9を選択" }).click();
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(
+    page.getByRole("heading", { name: "縦向きにしてください" }),
+  ).toBeVisible();
+  await expect(page.locator("main")).toHaveAttribute("inert", "");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.getByRole("heading", { name: "縦向きにしてください" }),
+  ).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /9 の札を伏せる/ }),
+  ).toBeEnabled();
+  await context.close();
 });

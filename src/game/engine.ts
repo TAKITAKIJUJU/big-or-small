@@ -239,7 +239,7 @@ function settle(s: GameState, folded?: Player) {
     text:
       winner === "tie"
         ? "引き分け。ポットを分配"
-        : `${winner === "human" ? "あなた" : "番人"}がポット${pot}を獲得`,
+        : `${winner === "human" ? "あなた" : "NPC"}がポット${pot}を獲得`,
   });
 }
 export function transition(
@@ -262,7 +262,7 @@ export function transition(
       s.selected[player] = card;
       s.events.push({
         type: "committed",
-        text: `${player === "human" ? "あなた" : "番人"}が札を伏せた`,
+        text: `${player === "human" ? "あなた" : "NPC"}が札を伏せた`,
       });
       if (s.selected.human !== null && s.selected.bot !== null)
         s.phase = "drawing";
@@ -297,7 +297,7 @@ export function transition(
       s.actions.push({ player, action, paid });
       s.events.push({
         type: "action",
-        text: `${player === "human" ? "あなた" : "番人"}：${actionText(action, paid)}`,
+        text: `${player === "human" ? "あなた" : "NPC"}：${actionText(action, paid)}`,
       });
       if (action.type === "fold") settle(s, player);
       else if (action.type === "call") settle(s);

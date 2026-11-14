@@ -20,9 +20,10 @@ interface Props {
   settings: Settings;
   home: boolean;
   snap: number;
+  paused?: boolean;
   onFallback: () => void;
 }
-const brass = "#9e8551";
+const brass = "#a9aaa2";
 function Box({
   position,
   size,
@@ -132,7 +133,7 @@ function Card({
         <mesh castShadow receiveShadow>
           <boxGeometry args={[0.67, 0.025, 1.01]} />
           <meshStandardMaterial
-            color={selected ? "#d0b36c" : "#b1a589"}
+            color={selected ? "#c4aa9b" : "#b1a589"}
             roughness={0.85}
           />
         </mesh>
@@ -283,117 +284,182 @@ function MovingChips({
     </>
   );
 }
-function Keeper({
+function Limb({
+  from,
+  to,
+  radius,
+  color,
+}: {
+  from: [number, number, number];
+  to: [number, number, number];
+  radius: number;
+  color: string;
+}) {
+  const direction = new THREE.Vector3(...to).sub(new THREE.Vector3(...from));
+  const center = new THREE.Vector3(...from)
+    .add(new THREE.Vector3(...to))
+    .multiplyScalar(0.5);
+  const rotation = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    direction.clone().normalize(),
+  );
+  return (
+    <mesh position={center} quaternion={rotation} castShadow>
+      <cylinderGeometry args={[radius, radius * 0.85, direction.length(), 9]} />
+      <meshStandardMaterial color={color} roughness={0.95} />
+    </mesh>
+  );
+}
+function Opponent({
   view,
   reduced,
-  home,
 }: {
   view: PlayerView | null;
   reduced: boolean;
-  home: boolean;
 }) {
   const head = useRef<THREE.Group>(null),
-    arm = useRef<THREE.Group>(null);
+    hand = useRef<THREE.Group>(null);
+  const skin = "#b18a73",
+    jacket = "#293137";
   useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
+    const time = clock.elapsedTime;
     if (head.current) {
-      head.current.rotation.z = reduced ? 0 : Math.sin(t * 0.38) * 0.035;
-      head.current.rotation.y = reduced ? 0 : Math.sin(t * 0.22) * 0.07;
-      head.current.position.y =
-        2.85 + (reduced ? 0 : Math.sin(t * 0.8) * 0.012);
+      head.current.rotation.y = reduced ? 0 : Math.sin(time * 0.24) * 0.035;
+      head.current.rotation.x = reduced ? 0 : Math.sin(time * 0.5) * 0.015;
     }
-    if (arm.current)
-      arm.current.rotation.x = reduced
-        ? 0
-        : view?.turn === "bot" && view?.phase === "betting"
-          ? Math.sin(t * 3) * 0.045
-          : Math.sin(t * 0.7) * 0.01;
+    if (hand.current)
+      hand.current.position.y =
+        1.18 +
+        (reduced
+          ? 0
+          : view?.turn === "bot" && view.phase === "betting"
+            ? Math.sin(time * 2.1) * 0.018
+            : 0);
   });
   return (
-    <group position={[0, 0, -2.7]}>
-      <mesh position={[0, 1.75, 0.04]} castShadow>
-        <coneGeometry args={[0.85, 1.8, 7]} />
-        <meshStandardMaterial color="#242b28" roughness={0.96} />
+    <group position={[0, 0, -2.7]} name="npc-opponent">
+      <Box
+        position={[0, 1.8, -0.32]}
+        size={[1.45, 1.75, 0.18]}
+        color="#24292b"
+      />
+      <mesh position={[0, 1.85, 0]} castShadow>
+        <cylinderGeometry args={[0.59, 0.48, 1.35, 9]} />
+        <meshStandardMaterial color={jacket} roughness={0.96} />
       </mesh>
-      <mesh position={[0, 2.34, 0]} castShadow>
-        <cylinderGeometry args={[0.31, 0.38, 0.18, 12]} />
-        <meshStandardMaterial color={brass} metalness={0.65} roughness={0.4} />
+      <Box
+        position={[0, 2.05, 0.575]}
+        size={[0.27, 0.76, 0.04]}
+        color="#b8b5ab"
+      />
+      <mesh position={[0, 2.5, 0]} castShadow>
+        <cylinderGeometry args={[0.17, 0.2, 0.35, 10]} />
+        <meshStandardMaterial color={skin} />
       </mesh>
-      <group ref={head} position={[0, 2.85, 0]}>
-        <mesh castShadow scale={[0.43, 0.59, 0.32]}>
-          <icosahedronGeometry args={[1, 2]} />
-          <meshStandardMaterial color="#bdb9a1" roughness={0.78} />
+      {[-1, 1].map((side) => (
+        <Box
+          key={side}
+          position={[side * 0.22, 2.23, 0.565]}
+          size={[0.14, 0.54, 0.07]}
+          color="#363f43"
+        />
+      ))}
+      <group ref={head} position={[0, 2.98, 0]}>
+        <mesh scale={[0.35, 0.47, 0.32]} castShadow>
+          <sphereGeometry args={[1, 16, 12]} />
+          <meshStandardMaterial color={skin} roughness={0.95} />
         </mesh>
-        <mesh position={[0.09, 0, 0.292]} rotation={[0, 0, -0.07]}>
-          <boxGeometry args={[0.025, 0.91, 0.035]} />
-          <meshStandardMaterial color="#494c3c" metalness={0.6} />
+        <mesh
+          position={[0, 0.19, -0.025]}
+          scale={[0.375, 0.33, 0.34]}
+          castShadow
+        >
+          <sphereGeometry
+            args={[1, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2 + 0.12]}
+          />
+          <meshStandardMaterial color="#252a2a" roughness={1} />
         </mesh>
-        {[-1, 1].map((x) => (
-          <group key={x}>
+        <mesh
+          position={[-0.08, 0.2, 0.235]}
+          rotation={[0, 0, -0.18]}
+          scale={[0.27, 0.095, 0.1]}
+        >
+          <sphereGeometry args={[1, 12, 8]} />
+          <meshStandardMaterial color="#252a2a" roughness={1} />
+        </mesh>
+        <Box
+          position={[0, 0.06, -0.245]}
+          size={[0.57, 0.53, 0.12]}
+          color="#252a2a"
+        />
+        {[-1, 1].map((side) => (
+          <group key={side}>
             <mesh
-              position={[x * 0.18, 0.09, 0.299]}
-              rotation={[0, 0, x * 0.12]}
+              position={[side * 0.345, -0.025, -0.01]}
+              scale={[0.065, 0.11, 0.07]}
             >
-              <boxGeometry args={[0.2, 0.047, 0.035]} />
-              <meshStandardMaterial color="#111611" />
+              <sphereGeometry args={[1, 8, 6]} />
+              <meshStandardMaterial color={skin} />
             </mesh>
-            <mesh position={[x * 0.18, 0.085, 0.322]}>
-              <boxGeometry args={[0.095, 0.013, 0.01]} />
-              <meshBasicMaterial color={x === 1 ? "#c3a35e" : "#738e79"} />
+            <mesh
+              position={[side * 0.137, 0.035, 0.294]}
+              scale={[0.068, 0.028, 0.022]}
+            >
+              <sphereGeometry args={[1, 10, 6]} />
+              <meshStandardMaterial color="#c7c0b1" />
             </mesh>
+            <mesh position={[side * 0.137, 0.032, 0.315]}>
+              <sphereGeometry args={[0.018, 8, 6]} />
+              <meshStandardMaterial color="#292d2c" />
+            </mesh>
+            <Box
+              position={[side * 0.139, 0.105, 0.294]}
+              size={[0.14, 0.025, 0.025]}
+              color="#34312c"
+            />
           </group>
         ))}
-        <mesh position={[-0.05, -0.26, 0.29]} rotation={[0, 0, 0.08]}>
-          <boxGeometry args={[0.2, 0.018, 0.02]} />
-          <meshStandardMaterial color="#555947" />
+        <mesh position={[0, -0.045, 0.326]} rotation={[Math.PI / 2, 0, 0]}>
+          <coneGeometry args={[0.06, 0.13, 4]} />
+          <meshStandardMaterial color={skin} roughness={1} />
         </mesh>
-        <mesh position={[-0.36, 0.1, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.095, 0.021, 6, 12]} />
-          <meshStandardMaterial color={brass} metalness={0.8} roughness={0.3} />
-        </mesh>
+        <Box
+          position={[0, -0.205, 0.294]}
+          size={[0.15, 0.015, 0.025]}
+          color="#795b50"
+        />
       </group>
       {[-1, 1].map((side) => (
-        <group
-          key={side}
-          ref={side === 1 ? arm : undefined}
-          position={[side * 0.64, 1.95, 0.12]}
-          rotation={[0, 0, side * 0.38]}
-        >
-          <mesh position={[0, -0.36, 0.15]} castShadow rotation={[-0.5, 0, 0]}>
-            <cylinderGeometry args={[0.18, 0.14, 0.85, 7]} />
-            <meshStandardMaterial color="#2f3530" roughness={0.9} />
-          </mesh>
-          <mesh position={[0, -0.74, 0.38]} rotation={[-1.2, 0, 0]} castShadow>
-            <cylinderGeometry args={[0.14, 0.1, 0.7, 7]} />
-            <meshStandardMaterial color="#353a30" />
-          </mesh>
-          <group position={[0, -0.96, 0.74]}>
-            <Box
-              position={[0, 0, 0]}
-              size={[0.25, 0.11, 0.28]}
-              color="#a29b7f"
-            />
+        <group key={side}>
+          <Limb
+            from={[side * 0.51, 2.3, 0.02]}
+            to={[side * 0.79, 1.55, 0.47]}
+            radius={0.19}
+            color={jacket}
+          />
+          <Limb
+            from={[side * 0.79, 1.55, 0.47]}
+            to={[side * 0.67, 1.2, 1.0]}
+            radius={0.135}
+            color={jacket}
+          />
+          <group
+            ref={side === 1 ? hand : undefined}
+            position={[side * 0.67, 1.18, 1.08]}
+            rotation={[0, side * -0.12, 0]}
+          >
+            <Box position={[0, 0, 0]} size={[0.23, 0.1, 0.26]} color={skin} />
             {[0, 1, 2, 3].map((i) => (
               <Box
                 key={i}
-                position={[(i - 1.5) * 0.063, -0.01, 0.22 + (i % 2) * 0.03]}
-                size={[0.045, 0.075, 0.24]}
-                color="#a29b7f"
+                position={[(i - 1.5) * 0.057, -0.01, 0.21 + (i % 2) * 0.02]}
+                size={[0.046, 0.075, 0.19]}
+                color={skin}
               />
             ))}
           </group>
         </group>
       ))}
-      <Box
-        position={[0, 1.9, -0.44]}
-        size={[1.75, 2.25, 0.18]}
-        color="#201e18"
-      />
-      <Plate
-        text={home ? "THE KEEPER" : "KEEPER / 01"}
-        position={[0, 1.175, 0.83]}
-        width={1.3}
-      />
     </group>
   );
 }
@@ -408,17 +474,13 @@ function CameraRig({
   reduced: boolean;
   snap: number;
 }) {
-  const { camera, size } = useThree(),
+  const { camera } = useThree(),
     lastSnap = useRef(snap);
-  const portrait = size.width / size.height < 0.8;
+
   useFrame((_, dt) => {
     const force = reduced || lastSnap.current !== snap;
     lastSnap.current = snap;
-    const target = new THREE.Vector3(
-      0,
-      portrait ? 4.6 : 4.5,
-      portrait ? 8.2 : 7.6,
-    );
+    const target = new THREE.Vector3(0, 4.6, 8.2);
     if (phase === "resolved" && !home) {
       target.y -= 0.18;
       target.z -= 0.36;
@@ -429,13 +491,13 @@ function CameraRig({
     }
     camera.position.lerp(target, force ? 1 : 1 - Math.exp(-dt * 3));
     if (camera instanceof THREE.PerspectiveCamera) {
-      const fov = portrait ? 65 : 43;
+      const fov = 65;
       if (camera.fov !== fov) {
         camera.fov = fov;
         camera.updateProjectionMatrix();
       }
     }
-    camera.lookAt(0, portrait ? 1.15 : 1.18, -0.55);
+    camera.lookAt(0, 1.15, -0.55);
   });
   return null;
 }
@@ -450,12 +512,9 @@ function Room(props: Props) {
   const available = (view?.hand ?? [3, 6, 9, 11, 13]).filter(
     (c) => c !== view?.ownCard,
   );
-  let center = available.indexOf(candidate ?? -1);
-  if (center < 0) center = Math.floor(available.length / 2);
-  const visible = available.slice(
-    Math.max(0, Math.min(available.length - 5, center - 2)),
-    Math.max(0, Math.min(available.length - 5, center - 2)) + 5,
-  );
+  const preview = available.includes(candidate ?? -1)
+    ? candidate!
+    : available[Math.floor(available.length / 2)];
   const record = view?.history.at(-1);
   const showdown =
     (view?.phase === "resolved" || view?.phase === "finished") &&
@@ -463,21 +522,21 @@ function Room(props: Props) {
   useFrame(({ clock }) => {
     if (lamp.current)
       lamp.current.intensity =
-        17 + (reduced ? 0 : Math.sin(clock.elapsedTime * 2.3) * 0.3);
+        17 + (reduced ? 0 : Math.sin(clock.elapsedTime * 1.3) * 0.1);
   });
   return (
     <>
-      <color attach="background" args={["#0c110f"]} />
-      <fog attach="fog" args={["#0c110f", 8, 22]} />
-      <ambientLight intensity={0.3} color="#92a995" />
-      <hemisphereLight args={["#7f928a", "#1c130b", 0.65]} />
+      <color attach="background" args={["#14191c"]} />
+      <fog attach="fog" args={["#14191c", 8, 22]} />
+      <ambientLight intensity={0.48} color="#b4c0c4" />
+      <hemisphereLight args={["#aab9c2", "#27201a", 0.8]} />
       <spotLight
         position={[0, 6, 0.2]}
         target-position={[0, 1, -0.3]}
         angle={0.68}
         penumbra={0.8}
-        intensity={100}
-        color="#ffe0a1"
+        intensity={85}
+        color="#f1dfc6"
         castShadow={!low}
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
@@ -488,7 +547,7 @@ function Room(props: Props) {
         position={[0, 3.9, -0.8]}
         intensity={17}
         distance={7}
-        color="#ffd38a"
+        color="#e6d5b9"
       />
       <pointLight
         position={[-3, 3, -3]}
@@ -506,22 +565,22 @@ function Room(props: Props) {
         <boxGeometry args={[18, 0.15, 18]} />
         <meshStandardMaterial color="#161c17" roughness={1} />
       </mesh>
-      <Box position={[0, 3.1, -5.2]} size={[16, 7, 0.3]} color="#26302a" />
+      <Box position={[0, 3.1, -5.2]} size={[16, 7, 0.3]} color="#30363a" />
       {Array.from({ length: 13 }, (_, i) => (
         <Box
           key={i}
           position={[(i - 6) * 0.9, 2.25, -4.99]}
           size={[0.028, 4.4, 0.055]}
-          color="#4a5040"
+          color="#3b4247"
         />
       ))}
-      <Box position={[0, 0.6, -4.9]} size={[16, 0.09, 0.18]} color="#807047" />
+      <Box position={[0, 0.6, -4.9]} size={[16, 0.09, 0.18]} color="#333a3e" />
       {[-1, 1].map((x) => (
         <group key={x}>
           <Box
             position={[x * 5.2, 2.9, -1]}
             size={[0.25, 7, 12]}
-            color="#1a251f"
+            color="#262d32"
           />
           <Box
             position={[x * 3, 0.54, 0]}
@@ -538,7 +597,7 @@ function Room(props: Props) {
       <Box
         position={[0, 1.11, -0.1]}
         size={[4.7, 0.024, 3.75]}
-        color="#313e31"
+        color="#303b3c"
         rough={0.98}
         cast={false}
       />
@@ -567,7 +626,7 @@ function Room(props: Props) {
       <mesh position={[0, 4.35, -0.75]}>
         <coneGeometry args={[0.72, 0.55, 24, 1, true]} />
         <meshStandardMaterial
-          color="#384235"
+          color="#242b30"
           side={THREE.DoubleSide}
           roughness={0.5}
           metalness={0.6}
@@ -575,14 +634,14 @@ function Room(props: Props) {
       </mesh>
       <mesh position={[0, 4.12, -0.75]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.54, 24]} />
-        <meshBasicMaterial color="#edce8f" />
+        <meshBasicMaterial color="#e5d8bd" />
       </mesh>
-      <Keeper view={view} reduced={reduced} home={home} />
+      <Opponent view={view} reduced={reduced} />
       <group position={[0, 1.16, -0.55]}>
         <Box
           position={[0, 0.08, 0]}
           size={[1.8, 0.16, 0.68]}
-          color="#242b24"
+          color="#22292e"
           metal={0.6}
         />
         <Box
@@ -603,26 +662,25 @@ function Room(props: Props) {
               color={
                 view?.mode
                   ? view.mode === "BIG"
-                    ? "#d6b76e"
-                    : "#8aaea3"
-                  : "#70644b"
+                    ? "#c5987f"
+                    : "#8aa3ac"
+                  : "#4c5a60"
               }
-              emissive={view?.mode ? "#947b42" : "#000000"}
+              emissive={view?.mode ? "#76594b" : "#000000"}
               emissiveIntensity={0.5}
             />
           </mesh>
         ))}
       </group>
-      <Plate text="XIII" position={[-1.7, 1.145, -0.1]} width={0.5} />
       <ChipStack
         amount={view?.chips.bot ?? 300}
         position={[-1.5, 1.18, -1.5]}
-        color="#a29268"
+        color="#a7aaa3"
       />
       <ChipStack
         amount={view?.chips.human ?? 300}
         position={[1.6, 1.17, 1.55]}
-        color="#8c9a80"
+        color="#6e8289"
       />
       <ChipStack amount={view?.pot ?? 4} position={[1.05, 1.18, 0.06]} />
       <MovingChips view={view} reduced={reduced} />
@@ -644,22 +702,30 @@ function Room(props: Props) {
           reduced={reduced}
         />
       )}
-      {visible.map((c, i) => (
+      {available.length > 0 &&
+        [0, 1, 2].map((i) => (
+          <Card
+            key={`deck-${i}`}
+            face={false}
+            position={[-1.27, 1.17 + i * 0.03, 1.62]}
+            rotation={-0.04 + i * 0.04}
+            reduced={reduced}
+          />
+        ))}
+      {(home || view?.phase === "selecting") && preview !== undefined && (
         <Card
-          key={`${view?.round ?? 0}-${c}`}
-          value={c}
+          key={`preview-${view?.round ?? 0}`}
+          value={preview}
           face
-          position={[
-            (i - (visible.length - 1) / 2) * 0.64,
-            1.18 + 0.003 * i,
-            1.92 + Math.abs(i - (visible.length - 1) / 2) * 0.04,
-          ]}
-          rotation={(i - (visible.length - 1) / 2) * -0.08}
-          selected={candidate === c}
-          onSelect={view?.phase === "selecting" ? () => onSelect(c) : undefined}
+          position={[0, 1.2, 1.82]}
+          rotation={-0.035}
+          selected={candidate === preview}
+          onSelect={
+            view?.phase === "selecting" ? () => onSelect(preview) : undefined
+          }
           reduced={reduced}
         />
-      ))}
+      )}
       <CameraRig
         phase={view?.phase ?? "home"}
         home={home}
@@ -695,8 +761,9 @@ function Fallback({
     r?.reason === "showdown";
   return (
     <div className="fallback-table">
-      <div className="fallback-keeper">
-        ◇<span>番人</span>
+      <div className="fallback-opponent">
+        <span className="fallback-person" />
+        <span>NPC</span>
       </div>
       <div className="fallback-card">{show ? view?.revealed.bot : "◇"}</div>
       <div className="fallback-machine">
@@ -779,7 +846,7 @@ export default function TableScene(props: Props) {
     <div
       className="scene"
       data-render-quality={fallback ? "fallback" : low ? "low" : "high"}
-      aria-label="番人と向き合う3Dの卓"
+      aria-label="NPCと向き合う3Dのテーブル"
     >
       {fallback ? (
         <Fallback {...props} />
@@ -787,11 +854,12 @@ export default function TableScene(props: Props) {
         <SceneBoundary onError={fail}>
           <Suspense
             fallback={
-              <div className="scene-loading">卓に明かりを灯しています…</div>
+              <div className="scene-loading">テーブルを読み込み中…</div>
             }
           >
             <Canvas
               dpr={low ? 1 : [1, 1.5]}
+              frameloop={props.paused ? "never" : "always"}
               shadows={!low}
               camera={{ position: [0, 4.5, 8.2], fov: 55 }}
               gl={{
@@ -827,7 +895,7 @@ export default function TableScene(props: Props) {
         </SceneBoundary>
       )}
       {!fallback && !ready && (
-        <div className="scene-loading">卓に明かりを灯しています…</div>
+        <div className="scene-loading">テーブルを読み込み中…</div>
       )}
       <div className="vignette" />
     </div>

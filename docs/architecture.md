@@ -8,7 +8,7 @@
 | src/game/bot.ts          | PlayerViewのみを引数にする3難易度の戦略                         |
 | src/lib/useGame.ts       | 内部状態とコマンド記録の所有、Bot入力の作成、暗号乱数           |
 | src/lib/session.ts       | 設定の正規化、保存、記録の合法再生                              |
-| src/scene/TableScene.tsx | ビューから立体カード・チップ・番人・照明・カメラを表現          |
+| src/scene/TableScene.tsx | ビューから立体カード・チップ・NPC・照明・カメラを表現           |
 | src/scene/textures.ts    | オリジナルの紙、裏模様、木目、表示板の手続き生成                |
 | src/lib/audio.ts         | 操作後にWeb Audioで短い効果音と小さな環境音を合成               |
 | src/App.tsx              | ホーム、入力補助、ベット額、結果、モーダル、再開                |

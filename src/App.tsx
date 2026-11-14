@@ -75,7 +75,7 @@ function Modal({
       className="dialog"
     >
       <div className="dialog-head">
-        <span className="eyebrow">USOTUKI / FIELD NOTES</span>
+        <span className="eyebrow">USOTUKI</span>
         <button className="icon-button" aria-label="閉じる" onClick={onClose}>
           ×
         </button>
@@ -83,7 +83,7 @@ function Modal({
       <h2>{title}</h2>
       {children}
       <button className="button outline full" onClick={onClose}>
-        卓に戻る
+        戻る
       </button>
     </dialog>
   );
@@ -92,11 +92,11 @@ function Rules() {
   return (
     <div className="prose">
       <p>
-        13枚の札を、一度ずつ。番人より多くのチップを残せば、あなたの勝ちです。
+        13枚の札を、一度ずつ。NPCより多くのチップを残せば、あなたの勝ちです。
       </p>
       <ol>
         <li>お互いに2チップを中央へ出します。</li>
-        <li>1〜13から1枚を選び、伏せて確定。番人も抽選前に確定します。</li>
+        <li>1〜13から1枚を選び、伏せて確定。NPCも抽選前に確定します。</li>
         <li>
           <b>BIG</b>なら大きい数字、<b>SMALL</b>
           なら小さい数字が勝ち。毎回、独立した五分五分の抽選です。
@@ -147,7 +147,7 @@ function SettingsPanel({
   return (
     <div className="settings-grid">
       <label>
-        番人の難易度
+        NPCの難易度
         <select
           value={settings.difficulty}
           onChange={(e) =>
@@ -216,14 +216,14 @@ function SettingsPanel({
         />
       </label>
       <label className="toggle">
-        オールイン（次の対局から）
+        オールイン（次の対戦から）
         <input
           type="checkbox"
           checked={settings.allIn}
           onChange={(e) => update("allIn", e.target.checked)}
         />
       </label>
-      {inMatch && <small>進行中の対局の上限は変更されません。</small>}
+      {inMatch && <small>進行中の対戦の上限は変更されません。</small>}
       <label className="toggle">
         試合終了後に全カードを開示
         <input
@@ -232,7 +232,7 @@ function SettingsPanel({
           onChange={(e) => update("reveal", e.target.checked)}
         />
       </label>
-      <small>対局中、フォールドされた相手の札は履歴にも表示されません。</small>
+      <small>対戦中、フォールドされた相手の札は履歴にも表示されません。</small>
     </div>
   );
 }
@@ -246,7 +246,7 @@ function History({ view }: { view: PlayerView | null }) {
           <div className="history-header">
             <span>回 / 判定</span>
             <span>あなた</span>
-            <span>番人</span>
+            <span>NPC</span>
             <span>増減</span>
           </div>
           {view.history.map((r) => (
@@ -272,7 +272,7 @@ function History({ view }: { view: PlayerView | null }) {
           ))}
           {view.phase === "finished" && (
             <div className="review">
-              <h3>卓の記録</h3>
+              <h3>対戦の振り返り</h3>
               {view.history
                 .filter((r) => r.reason === "fold" && r.cards.bot !== null)
                 .map((r) => {
@@ -293,14 +293,14 @@ function History({ view }: { view: PlayerView | null }) {
                       {winAtShowdown !== r.winner && winAtShowdown !== "tie"
                         ? player
                           ? "あなたのブラフが成功。"
-                          : "番人のブラフが成功。"
+                          : "NPCのブラフが成功。"
                         : "降りた札を振り返る。"}{" "}
-                      あなた {r.cards.human} / 番人 {r.cards.bot}
+                      あなた {r.cards.human} / NPC {r.cards.bot}
                     </p>
                   );
                 })}
               <small>
-                公開後の札による振り返りです。対局中のBotは相手の札を参照しません。
+                公開後の札による振り返りです。対戦中のBotは相手の札を参照しません。
               </small>
             </div>
           )}
@@ -333,7 +333,7 @@ function Betting({
           あなたの追加拠出 <b>{view.contributions.human}</b>
         </span>
         <span>
-          番人 <b>{view.contributions.bot}</b> / 上限{" "}
+          NPC <b>{view.contributions.bot}</b> / 上限{" "}
           {view.allIn ? "有効スタック" : 20}
         </span>
       </div>
@@ -434,7 +434,8 @@ export default function App() {
     [fallback, setFallback] = useState(false),
     [tutorial, setTutorial] = useState(false),
     [tutorialRequest, setTutorialRequest] = useState(false),
-    [reducedOS, setReducedOS] = useState(false);
+    [reducedOS, setReducedOS] = useState(false),
+    [landscape, setLandscape] = useState(false);
   const revision = view?.revision ?? -1;
   const autoStep =
     view &&
@@ -453,7 +454,24 @@ export default function App() {
     return () => q.removeEventListener("change", update);
   }, []);
   useEffect(() => {
-    if (screen !== "game" || modal || (!autoStep && !game.revealPending))
+    const query = matchMedia(
+      "(orientation: landscape) and (max-height: 600px) and (pointer: coarse)",
+    );
+    const update = () => setLandscape(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    if (landscape) setModal(null);
+  }, [landscape]);
+  useEffect(() => {
+    if (
+      screen !== "game" ||
+      modal ||
+      landscape ||
+      (!autoStep && !game.revealPending)
+    )
       return;
     const delay =
       settings.reduced || reducedOS || settings.speed === "skip"
@@ -481,6 +499,7 @@ export default function App() {
     reducedOS,
     view?.phase,
     game.revealPending,
+    landscape,
   ]);
   function start(forceTutorial = false) {
     unlockAudio();
@@ -503,497 +522,487 @@ export default function App() {
   const status = !view
     ? ""
     : game.revealPending
-      ? "装置が、運命を告げる。"
+      ? "BIG / SMALL を抽選中"
       : view.phase === "selecting"
-        ? "運命が決まる前に、一枚を。"
+        ? "カードを1枚選ぶ"
         : view.phase === "drawing"
-          ? "二枚が伏せられた。装置が動く。"
+          ? "カードを確定しました"
           : view.phase === "betting"
             ? view.turn === "human"
               ? "あなたの手番"
-              : "番人が考えています…"
+              : "NPCが考えています…"
             : view.phase === "resolved"
               ? last?.winner === "tie"
-                ? "この勝負は、引き分け。"
+                ? "このラウンドは引き分け"
                 : last?.winner === "human"
-                  ? "あなたが、この勝負を取った。"
-                  : "番人が、この勝負を取った。"
-              : "十三夜の卓、閉幕。";
+                  ? "このラウンドはあなたの勝ち"
+                  : "このラウンドはNPCの勝ち"
+              : "対戦終了";
   const tutorialText =
     view?.phase === "selecting"
-      ? "① 手元の札、または下の数字を選び、「この札を伏せる」で確定。抽選前なので、まだ有利な数字は分かりません。"
+      ? "数字を選んで、カードを伏せます。選んだカードは一度だけ使えます。"
       : view?.phase === "drawing"
-        ? "② 札は変更できません。BIGは大きい札、SMALLは小さい札が勝ちます。"
+        ? "BIGは大きい数字、SMALLは小さい数字の勝ちです。"
         : view?.phase === "betting"
-          ? "③ チェックは追加なし。ベット後はコールで勝負、フォールドで降ります。札の強さと相手の行動を考えてみましょう。"
-          : "④ 公開された札で勝敗が決まります。降りた場合は裏のまま。使った札は戻りません。";
+          ? "チェックは追加なし。相手が賭けたら、同額を出すか、増やすか、降りるかを選びます。"
+          : "公開されたカードで勝敗を判定します。降りたときは両方のカードを伏せたまま使い終えます。";
   return (
-    <main
-      className={`app ${screen === "home" ? "is-home" : ""} ${settings.reduced || reducedOS ? "reduce-motion" : ""}`}
-    >
-      <Suspense
-        fallback={<div className="scene-loading">部屋の扉を開けています…</div>}
+    <>
+      <main
+        inert={landscape}
+        className={`app ${screen === "home" ? "is-home" : ""} ${settings.reduced || reducedOS ? "reduce-motion" : ""}`}
       >
-        <TableScene
-          view={view}
-          candidate={candidate}
-          onSelect={(n) => {
-            if (!modal && !game.busy) {
-              unlockAudio();
-              setCandidate(n);
-            }
-          }}
-          settings={{ ...settings, reduced: settings.reduced || reducedOS }}
-          home={screen === "home"}
-          snap={snap}
-          onFallback={() => setFallback(true)}
-        />
-      </Suspense>
-      {screen === "home" ? (
-        <>
-          <header className="home-header">
-            <a href="#" className="wordmark" aria-label="USOTUKI ホーム">
-              U<span className="diamond">◇</span>
-            </a>
-            <span className="eyebrow">十三夜の卓 / LOCAL BOT EDITION</span>
-            <button
-              className="icon-button"
-              aria-label="設定"
-              onClick={() => setModal("settings")}
-            >
-              <Icon kind="settings" />
-            </button>
-          </header>
-          <section className="home-title">
-            <span className="eyebrow">THE TRUTH STAYS FACE DOWN.</span>
-            <h1>
-              {GAME_NAME}
-              <span className="logo-dot">.</span>
-            </h1>
-            <div className="title-rule">
-              <span>BIG</span>
-              <i />
-              or
-              <i />
-              <span>SMALL</span>
-            </div>
-            <p>十三枚の札。ひとつの嘘。</p>
-          </section>
-          <section className="home-menu">
-            <div className="menu-note">
-              <span className="status-dot" /> 向かいの席は、空いていない。
-            </div>
-            {inMatch && (
-              <button
-                className="button primary full"
-                onClick={() => {
-                  unlockAudio();
-                  setScreen("game");
-                }}
-              >
-                対局を再開<span>第 {view?.round} 回 →</span>
-              </button>
-            )}
-            <button
-              className={`button ${inMatch ? "outline" : "primary"} full`}
-              onClick={() => {
-                setTutorialRequest(false);
-                if (inMatch) setModal("new");
-                else start();
-              }}
-            >
-              {inMatch ? "新しい対局" : "卓につく"}
-              <span>{DIFFICULTY[settings.difficulty]}の番人 →</span>
-            </button>
-            <div className="home-links">
-              <button onClick={() => setModal("rules")}>遊び方</button>
-              <span>/</span>
-              <button
-                onClick={() => {
-                  setTutorialRequest(true);
-                  if (inMatch) setModal("new");
-                  else start(true);
-                }}
-              >
-                実践チュートリアル
-              </button>
-            </div>
-            <div className="home-foot">
-              <span>1 PLAYER · 13 ROUNDS</span>
-              <span>音のある静けさを推奨</span>
-            </div>
-          </section>
-        </>
-      ) : (
-        view && (
+        <Suspense fallback={<div className="scene-loading">読み込み中…</div>}>
+          <TableScene
+            view={view}
+            candidate={candidate}
+            onSelect={(n) => {
+              if (!modal && !game.busy) {
+                unlockAudio();
+                setCandidate(n);
+              }
+            }}
+            settings={{ ...settings, reduced: settings.reduced || reducedOS }}
+            home={screen === "home"}
+            snap={snap}
+            paused={landscape}
+            onFallback={() => setFallback(true)}
+          />
+        </Suspense>
+        {screen === "home" ? (
           <>
-            <header className="game-header">
+            <header className="home-header">
+              <a href="#" className="wordmark" aria-label="USOTUKI ホーム">
+                USOTUKI
+              </a>
+
               <button
-                className="mini-logo"
-                aria-label="ホームへ戻る"
-                onClick={() => setScreen("home")}
+                className="icon-button"
+                aria-label="設定"
+                onClick={() => setModal("settings")}
               >
-                U<span>◇</span>
+                <Icon kind="settings" />
               </button>
-              <div className="round-counter">
-                <span>ROUND</span>
-                <strong>
-                  {String(view.round).padStart(2, "0")}
-                  <small> / 13</small>
-                </strong>
-              </div>
-              <div className="header-actions">
+            </header>
+            <section className="home-title">
+              <span className="eyebrow">BIG or SMALL</span>
+              <h1>{GAME_NAME}</h1>
+              <p>一枚選んで、相手の判断を読む。</p>
+            </section>
+            <section className="home-menu">
+              <div className="menu-note">NPC対戦 · 13ラウンド</div>
+              {inMatch && (
                 <button
-                  className="icon-button"
-                  aria-label={settings.muted ? "音をオン" : "音をミュート"}
+                  className="button primary full"
                   onClick={() => {
                     unlockAudio();
-                    setSettings({ ...settings, muted: !settings.muted });
+                    setScreen("game");
                   }}
                 >
-                  <Icon kind="sound" muted={settings.muted} />
+                  対戦を再開<span>第 {view?.round} 回 →</span>
                 </button>
-                <button
-                  className="icon-button"
-                  aria-label="対局履歴"
-                  onClick={() => setModal("history")}
-                >
-                  <Icon kind="history" />
-                </button>
-                <button
-                  className="icon-button"
-                  aria-label="設定"
-                  onClick={() => setModal("settings")}
-                >
-                  <Icon kind="settings" />
-                </button>
-              </div>
-            </header>
-            <div className="scoreboard">
-              <div>
-                <span>YOU / あなた</span>
-                <b>
-                  {view.chips.human}
-                  <small>chips</small>
-                </b>
-              </div>
-              <div className="pot">
-                <span>POT</span>
-                <b>{view.pot}</b>
-              </div>
-              <div className="opponent-score">
-                <span>番人 / {DIFFICULTY[settings.difficulty]}</span>
-                <b>
-                  {view.chips.bot}
-                  <small>chips</small>
-                </b>
-              </div>
-            </div>
-            <div className="table-caption">
-              <span className="eyebrow">
-                {view.phase === "selecting"
-                  ? "KEEP YOUR INTENTIONS QUIET"
-                  : view.phase === "drawing"
-                    ? "THE MACHINE DECIDES"
-                    : "READ THE SILENCE"}
-              </span>
-              <span
-                className={`mode-badge ${game.revealPending ? "drawing" : ""}`}
-              >
-                {view.mode ?? (view.phase === "drawing" ? "抽選中" : "?")}
-              </span>
-              <span>
-                {view.mode === "BIG"
-                  ? "大きい数字が勝つ"
-                  : view.mode === "SMALL"
-                    ? "小さい数字が勝つ"
-                    : "双方の確定後に抽選"}
-              </span>
-            </div>
-            <div className="scene-tools">
-              <span>
-                {fallback ? "軽量モード" : "3D TABLE"} ·{" "}
-                {view.allIn ? "オールイン有効" : "上限 20"}
-              </span>
+              )}
               <button
+                className={`button ${inMatch ? "outline" : "primary"} full`}
                 onClick={() => {
-                  setSnap((n) => n + 1);
-                  if (game.revealPending) game.completeReveal();
-                  else if (autoStep && !modal) game.step(revision);
+                  setTutorialRequest(false);
+                  if (inMatch) setModal("new");
+                  else start();
                 }}
               >
-                演出スキップ ↗
+                {inMatch ? "新しい対戦" : "対戦をはじめる"}
+                <span>{DIFFICULTY[settings.difficulty]} →</span>
               </button>
-            </div>
-            <section
-              className={`control-panel ${view.phase === "finished" ? "end-panel" : ""}`}
-              aria-label="対局操作"
-            >
-              {tutorial && (
-                <div className="tutorial">
-                  <p>{tutorialText}</p>
-                  <button
-                    onClick={closeTutorial}
-                    aria-label="チュートリアルを終了"
-                  >
-                    スキップ ×
-                  </button>
-                </div>
-              )}
-              <div className="panel-heading">
-                <h2 aria-live="polite">{status}</h2>
+              <div className="home-links">
+                <button onClick={() => setModal("rules")}>遊び方</button>
+                <span>/</span>
                 <button
-                  className="help"
-                  onClick={() => setModal("rules")}
-                  aria-label="ルールを読む"
+                  onClick={() => {
+                    setTutorialRequest(true);
+                    if (inMatch) setModal("new");
+                    else start(true);
+                  }}
                 >
-                  ?
+                  実践チュートリアル
                 </button>
               </div>
-              {view.phase === "selecting" && (
-                <>
-                  <div className="hand-label">
-                    <span>
-                      YOUR HAND{" "}
-                      <small>残り {view.hand.length} 枚 · 横にスクロール</small>
-                    </span>
-                    <span>
-                      {chosen ? `選択中：${candidate}` : "札をタップ"}
-                    </span>
-                  </div>
-                  <div
-                    className="hand-strip"
-                    role="group"
-                    aria-label="あなたの手札"
-                  >
-                    {view.hand.map((c) => (
-                      <button
-                        key={c}
-                        aria-label={`カード${c}を選択`}
-                        aria-pressed={candidate === c}
-                        disabled={view.ownCard !== null || game.busy || !!modal}
-                        onClick={() => {
-                          unlockAudio();
-                          setCandidate(c);
-                        }}
-                      >
-                        {String(c).padStart(2, "0")}
-                      </button>
-                    ))}
-                  </div>
+              <div className="home-foot">
+                <span>1人プレイ</span>
+                <span>設定は対戦中も変更できます</span>
+              </div>
+            </section>
+          </>
+        ) : (
+          view && (
+            <>
+              <header className="game-header">
+                <button
+                  className="mini-logo"
+                  aria-label="ホームへ戻る"
+                  onClick={() => setScreen("home")}
+                >
+                  <span className="back-arrow">←</span>
+                </button>
+                <div className="round-counter">
+                  <span>ラウンド</span>
+                  <strong>
+                    {String(view.round).padStart(2, "0")}
+                    <small> / 13</small>
+                  </strong>
+                </div>
+                <div className="header-actions">
                   <button
-                    className="button primary full commit"
-                    disabled={!chosen || game.busy || !!modal}
+                    className="icon-button"
+                    aria-label={settings.muted ? "音をオン" : "音をミュート"}
                     onClick={() => {
                       unlockAudio();
-                      if (chosen)
-                        game.humanCommand({
-                          type: "select",
-                          player: "human",
-                          card: candidate!,
-                        });
+                      setSettings({ ...settings, muted: !settings.muted });
                     }}
                   >
-                    {chosen
-                      ? `${candidate} の札を伏せる`
-                      : "一枚、選んでください"}
-                    <span>確定後は変更できません</span>
+                    <Icon kind="sound" muted={settings.muted} />
                   </button>
-                </>
-              )}
-              {(view.phase === "drawing" || game.revealPending) && (
-                <div className="waiting">
-                  <span className="spinner" />
-                  <p>
-                    BIG / SMALL は毎回 50% / 50%
-                    <small>あなたの札：{view.ownCard} · 確定済み</small>
-                  </p>
+                  <button
+                    className="icon-button"
+                    aria-label="対戦履歴"
+                    onClick={() => setModal("history")}
+                  >
+                    <Icon kind="history" />
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label="設定"
+                    onClick={() => setModal("settings")}
+                  >
+                    <Icon kind="settings" />
+                  </button>
                 </div>
-              )}
-              {view.phase === "betting" &&
-                !game.revealPending &&
-                (view.turn === "human" ? (
-                  <Betting
-                    key={view.round}
-                    view={view}
-                    busy={game.busy || !!modal}
-                    onAct={(a) => {
-                      unlockAudio();
-                      game.humanCommand({
-                        type: "act",
-                        player: "human",
-                        action: a,
-                      });
-                    }}
-                  />
-                ) : (
+              </header>
+              <div className="scoreboard">
+                <div>
+                  <span>あなた</span>
+                  <b>{view.chips.human}</b>
+                </div>
+                <div className="pot">
+                  <span>ポット</span>
+                  <b>{view.pot}</b>
+                </div>
+                <div className="opponent-score">
+                  <span>NPC · {DIFFICULTY[settings.difficulty]}</span>
+                  <b>{view.chips.bot}</b>
+                </div>
+              </div>
+              <div className="table-caption">
+                <span
+                  className={`mode-badge ${game.revealPending ? "drawing" : ""}`}
+                >
+                  {view.mode ??
+                    (view.phase === "drawing" ? "抽選中" : "BIG / SMALL")}
+                </span>
+                <span>
+                  {view.mode === "BIG"
+                    ? "大きい数字が勝つ"
+                    : view.mode === "SMALL"
+                      ? "小さい数字が勝つ"
+                      : "双方の確定後に抽選"}
+                </span>
+              </div>
+              <div className="scene-tools">
+                <span>
+                  {fallback ? "軽量表示 · " : ""}
+                  {view.allIn ? "オールイン有効" : "上限 20"}
+                </span>
+                <button
+                  onClick={() => {
+                    setSnap((n) => n + 1);
+                    if (game.revealPending) game.completeReveal();
+                    else if (autoStep && !modal) game.step(revision);
+                  }}
+                >
+                  スキップ →
+                </button>
+              </div>
+              <section
+                className={`control-panel ${view.phase === "finished" ? "end-panel" : ""}`}
+                aria-label="対戦操作"
+              >
+                {tutorial && (
+                  <div className="tutorial">
+                    <p>{tutorialText}</p>
+                    <button
+                      onClick={closeTutorial}
+                      aria-label="チュートリアルを終了"
+                    >
+                      スキップ ×
+                    </button>
+                  </div>
+                )}
+                <div className="panel-heading">
+                  <h2 aria-live="polite">{status}</h2>
+                  <button
+                    className="help"
+                    onClick={() => setModal("rules")}
+                    aria-label="ルールを読む"
+                  >
+                    ?
+                  </button>
+                </div>
+                {view.phase === "selecting" && (
+                  <>
+                    <div className="hand-label">
+                      <span>
+                        残りのカード <small>{view.hand.length} 枚</small>
+                      </span>
+                      <span>
+                        {chosen ? `選択中：${candidate}` : "横にスクロール"}
+                      </span>
+                    </div>
+                    <div
+                      className="hand-strip"
+                      role="group"
+                      aria-label="あなたの手札"
+                    >
+                      {view.hand.map((c) => (
+                        <button
+                          key={c}
+                          aria-label={`カード${c}を選択`}
+                          aria-pressed={candidate === c}
+                          disabled={
+                            view.ownCard !== null || game.busy || !!modal
+                          }
+                          onClick={() => {
+                            unlockAudio();
+                            setCandidate(c);
+                          }}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      className="button primary full commit"
+                      disabled={!chosen || game.busy || !!modal}
+                      onClick={() => {
+                        unlockAudio();
+                        if (chosen)
+                          game.humanCommand({
+                            type: "select",
+                            player: "human",
+                            card: candidate!,
+                          });
+                      }}
+                    >
+                      {chosen
+                        ? `${candidate} の札を伏せる`
+                        : "一枚、選んでください"}
+                      <span>確定後は変更できません</span>
+                    </button>
+                  </>
+                )}
+                {(view.phase === "drawing" || game.revealPending) && (
                   <div className="waiting">
                     <span className="spinner" />
                     <p>
-                      番人の手が、チップに伸びる。
-                      <small>
-                        あなたの札：{view.ownCard} / {view.mode} / 追加拠出：
-                        {view.contributions.human}
-                      </small>
+                      BIG / SMALL は毎回 50% / 50%
+                      <small>あなたの札：{view.ownCard} · 確定済み</small>
                     </p>
                   </div>
-                ))}
-              {view.phase === "resolved" && !game.revealPending && last && (
-                <>
-                  <div className="round-result">
-                    <div>
-                      <span>
-                        {last.reason === "fold"
-                          ? "札は、闇の中へ。"
-                          : `あなた ${last.cards.human} / 番人 ${last.cards.bot}`}
-                      </span>
+                )}
+                {view.phase === "betting" &&
+                  !game.revealPending &&
+                  (view.turn === "human" ? (
+                    <Betting
+                      key={view.round}
+                      view={view}
+                      busy={game.busy || !!modal}
+                      onAct={(a) => {
+                        unlockAudio();
+                        game.humanCommand({
+                          type: "act",
+                          player: "human",
+                          action: a,
+                        });
+                      }}
+                    />
+                  ) : (
+                    <div className="waiting">
+                      <span className="spinner" />
+                      <p>
+                        NPCの手番
+                        <small>
+                          あなたの札：{view.ownCard} / {view.mode} / 追加拠出：
+                          {view.contributions.human}
+                        </small>
+                      </p>
+                    </div>
+                  ))}
+                {view.phase === "resolved" && !game.revealPending && last && (
+                  <>
+                    <div className="round-result">
+                      <div>
+                        <span>
+                          {last.reason === "fold"
+                            ? "フォールドで決着"
+                            : `あなた ${last.cards.human} / NPC ${last.cards.bot}`}
+                        </span>
+                        <small>
+                          {last.reason === "fold"
+                            ? "両者の札を非公開で廃棄"
+                            : "両者の札を公開"}{" "}
+                          · ポット {last.pot}
+                          {last.refunded.human > 0
+                            ? ` / 差額${last.refunded.human}を返還`
+                            : ""}
+                        </small>
+                      </div>
+                      <b className={last.delta.human > 0 ? "positive" : ""}>
+                        {last.delta.human > 0 ? "+" : ""}
+                        {last.delta.human}
+                      </b>
+                    </div>
+                    <button
+                      className="button primary full"
+                      disabled={game.busy || !!modal}
+                      onClick={() => {
+                        setCandidate(null);
+                        game.humanCommand({ type: "next" });
+                        if (tutorial) closeTutorial();
+                      }}
+                    >
+                      {view.round === 13 ||
+                      Math.min(view.chips.human, view.chips.bot) < 2
+                        ? "対戦の結果へ"
+                        : "次のラウンド"}
+                      <span>{view.round < 13 ? "次へ →" : "結果へ →"}</span>
+                    </button>
+                  </>
+                )}
+                {view.phase === "finished" && (
+                  <>
+                    <div className="final-result">
+                      <h3>
+                        {view.winner === "tie"
+                          ? "引き分け"
+                          : view.winner === "human"
+                            ? "あなたの勝利"
+                            : "NPCの勝利"}
+                      </h3>
+                      <p>
+                        {view.history.length}ラウンド終了 · あなた{" "}
+                        {view.chips.human} / NPC {view.chips.bot}
+                      </p>
                       <small>
-                        {last.reason === "fold"
-                          ? "両者の札を非公開で廃棄"
-                          : "両者の札を公開"}{" "}
-                        · ポット {last.pot}
-                        {last.refunded.human > 0
-                          ? ` / 差額${last.refunded.human}を返還`
-                          : ""}
+                        {view.history.length < 13
+                          ? "次のアンティを支払えないため対戦終了"
+                          : "すべてのカードを使い終えました。"}
                       </small>
                     </div>
-                    <b className={last.delta.human > 0 ? "positive" : ""}>
-                      {last.delta.human > 0 ? "+" : ""}
-                      {last.delta.human}
-                    </b>
-                  </div>
-                  <button
-                    className="button primary full"
-                    disabled={game.busy || !!modal}
-                    onClick={() => {
-                      setCandidate(null);
-                      game.humanCommand({ type: "next" });
-                      if (tutorial) closeTutorial();
-                    }}
-                  >
-                    {view.round === 13 ||
-                    Math.min(view.chips.human, view.chips.bot) < 2
-                      ? "対局の結果へ"
-                      : "次のラウンド"}
-                    <span>
-                      {view.round < 13 ? "札を使い切るまで →" : "幕を閉じる →"}
-                    </span>
-                  </button>
-                </>
-              )}
-              {view.phase === "finished" && (
-                <>
-                  <div className="final-result">
-                    <span className="eyebrow">
-                      {view.winner === "tie"
-                        ? "A PERFECT BALANCE"
-                        : view.winner === "human"
-                          ? "YOU READ THE SILENCE"
-                          : "THE KEEPER KNEW WHEN TO WAIT"}
-                    </span>
-                    <h3>
-                      {view.winner === "tie"
-                        ? "引き分け"
-                        : view.winner === "human"
-                          ? "あなたの勝利"
-                          : "番人の勝利"}
-                    </h3>
-                    <p>
-                      {view.history.length}ラウンド終了 · あなた{" "}
-                      {view.chips.human} / 番人 {view.chips.bot}
-                    </p>
-                    <small>
-                      {view.history.length < 13
-                        ? "次のアンティを支払えないため対局終了"
-                        : "十三枚、すべての札が卓を去った。"}
-                    </small>
-                  </div>
-                  <div className="action-buttons">
-                    <button
-                      className="button outline"
-                      onClick={() => setModal("history")}
-                    >
-                      対局を振り返る
-                    </button>
-                    <button className="button primary" onClick={() => start()}>
-                      もう一度、卓へ
-                    </button>
-                  </div>
-                </>
-              )}
-              {view.actions.length > 0 && view.phase === "betting" && (
-                <p className="last-action" aria-live="polite">
-                  {view.actions.at(-1)?.player === "bot" ? "番人" : "あなた"}：
-                  {actionText(
-                    view.actions.at(-1)!.action,
-                    view.actions.at(-1)!.paid,
-                  )}
-                  <span>あなたの札 {view.ownCard}</span>
+                    <div className="action-buttons">
+                      <button
+                        className="button outline"
+                        onClick={() => setModal("history")}
+                      >
+                        対戦を振り返る
+                      </button>
+                      <button
+                        className="button primary"
+                        onClick={() => start()}
+                      >
+                        もう一度対戦する
+                      </button>
+                    </div>
+                  </>
+                )}
+                {view.actions.length > 0 && view.phase === "betting" && (
+                  <p className="last-action" aria-live="polite">
+                    {view.actions.at(-1)?.player === "bot" ? "NPC" : "あなた"}：
+                    {actionText(
+                      view.actions.at(-1)!.action,
+                      view.actions.at(-1)!.paid,
+                    )}
+                    <span>あなたの札 {view.ownCard}</span>
+                  </p>
+                )}
+              </section>
+            </>
+          )
+        )}
+        {game.notice && (
+          <div className="notice" role="status">
+            <span>{game.notice}</span>
+            <button
+              aria-label="通知を閉じる"
+              onClick={() => game.setNotice("")}
+            >
+              ×
+            </button>
+          </div>
+        )}
+        {modal && (
+          <Modal
+            title={
+              modal === "settings"
+                ? "設定"
+                : modal === "rules"
+                  ? "ルール"
+                  : modal === "history"
+                    ? "対戦の記録"
+                    : "新しい対戦を始める"
+            }
+            onClose={() => setModal(null)}
+          >
+            {modal === "settings" ? (
+              <>
+                <SettingsPanel
+                  settings={settings}
+                  setSettings={setSettings}
+                  inMatch={inMatch}
+                />
+                <button
+                  className="button outline full"
+                  onClick={() => {
+                    setModal(null);
+                    setTutorial(true);
+                    setScreen(view ? "game" : "home");
+                    if (!view || view.phase === "finished") start(true);
+                  }}
+                >
+                  チュートリアルを再表示
+                </button>
+              </>
+            ) : modal === "rules" ? (
+              <Rules />
+            ) : modal === "history" ? (
+              <History view={view} />
+            ) : (
+              <>
+                <p className="prose">
+                  現在の対戦を終了して、新しい対戦を始めます。
                 </p>
-              )}
-            </section>
-          </>
-        )
-      )}
-      {game.notice && (
-        <div className="notice" role="status">
-          <span>{game.notice}</span>
-          <button aria-label="通知を閉じる" onClick={() => game.setNotice("")}>
-            ×
-          </button>
-        </div>
-      )}
-      {modal && (
-        <Modal
-          title={
-            modal === "settings"
-              ? "卓の設定"
-              : modal === "rules"
-                ? "この卓のルール"
-                : modal === "history"
-                  ? "対局の記録"
-                  : "新しい対局を始める"
-          }
-          onClose={() => setModal(null)}
+                <button
+                  className="button primary full"
+                  onClick={() => start(tutorialRequest)}
+                >
+                  新しい対戦を始める
+                </button>
+              </>
+            )}
+          </Modal>
+        )}
+      </main>
+      <aside className="orientation-notice" role="status" hidden={!landscape}>
+        <svg
+          viewBox="0 0 48 64"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-hidden="true"
         >
-          {modal === "settings" ? (
-            <>
-              <SettingsPanel
-                settings={settings}
-                setSettings={setSettings}
-                inMatch={inMatch}
-              />
-              <button
-                className="button outline full"
-                onClick={() => {
-                  setModal(null);
-                  setTutorial(true);
-                  setScreen(view ? "game" : "home");
-                  if (!view || view.phase === "finished") start(true);
-                }}
-              >
-                チュートリアルを再表示
-              </button>
-            </>
-          ) : modal === "rules" ? (
-            <Rules />
-          ) : modal === "history" ? (
-            <History view={view} />
-          ) : (
-            <>
-              <p className="prose">
-                現在の対局を終了して、新しい十三夜を始めます。進行中の対局には戻れません。
-              </p>
-              <button
-                className="button primary full"
-                onClick={() => start(tutorialRequest)}
-              >
-                新しい対局を始める
-              </button>
-            </>
-          )}
-        </Modal>
-      )}
-    </main>
+          <rect x="10" y="4" width="28" height="54" rx="5" />
+          <path d="M20 51h8" />
+        </svg>
+        <h2>縦向きにしてください</h2>
+        <p>このゲームは縦画面でプレイします。</p>
+      </aside>
+    </>
   );
 }

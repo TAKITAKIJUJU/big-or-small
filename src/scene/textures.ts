@@ -25,68 +25,47 @@ export function cardTexture(value?: number) {
     256,
     384,
     (c) => {
-      c.fillStyle = value === undefined ? "#253b36" : "#d9cfb3";
+      c.fillStyle = value === undefined ? "#405159" : "#e4e3da";
       c.fillRect(0, 0, 256, 384);
-      // 決定的な紙の繊維。外部素材なし。
-      for (let i = 0; i < 1800; i++) {
-        const x = (i * 71) % 256,
-          y = (i * 97) % 384;
-        c.fillStyle = i % 2 ? "#00000008" : "#ffffff0a";
-        c.fillRect(x, y, 1, 2);
+      for (let i = 0; i < 900; i++) {
+        c.fillStyle = i % 2 ? "#00000004" : "#ffffff08";
+        c.fillRect((i * 71) % 256, (i * 97) % 384, 1, 2);
       }
-      c.strokeStyle = value === undefined ? "#8f936d" : "#786e51";
-      c.lineWidth = 2;
-      c.strokeRect(13, 13, 230, 358);
-      c.strokeRect(20, 20, 216, 344);
-      c.save();
-      c.translate(128, 192);
-      c.rotate(Math.PI / 4);
-      c.strokeStyle = value === undefined ? "#a8a079" : "#a69a78";
-      c.strokeRect(-53, -53, 106, 106);
-      c.strokeRect(-43, -43, 86, 86);
-      c.restore();
       if (value !== undefined) {
-        c.fillStyle = "#25332e";
+        c.fillStyle = "#252b2e";
         c.textAlign = "center";
-        c.font = "bold 116px Georgia";
-        c.fillText(String(value), 128, 227);
-        c.font = "bold 34px Georgia";
+        c.font = "600 148px Arial, sans-serif";
+        c.fillText(String(value), 128, 242);
+        c.font = "600 32px Arial, sans-serif";
         c.textAlign = "left";
-        c.fillText(String(value), 31, 61);
+        c.fillText(String(value), 24, 50);
         c.save();
         c.translate(256, 384);
         c.rotate(Math.PI);
-        c.fillText(String(value), 31, 61);
+        c.fillText(String(value), 24, 50);
         c.restore();
-        c.font = "12px Georgia";
-        c.textAlign = "center";
-        c.fillText("U S O T U K I", 128, 316);
-      } else {
-        c.strokeStyle = "#929e78";
+        c.strokeStyle = "#a5aaa1";
         c.lineWidth = 1;
-        for (let y = 36; y < 360; y += 16)
-          for (let x = 36; x < 240; x += 16) {
-            c.beginPath();
-            c.moveTo(x, y - 5);
-            c.lineTo(x + 5, y);
-            c.lineTo(x, y + 5);
-            c.lineTo(x - 5, y);
-            c.closePath();
-            c.stroke();
-          }
-        c.fillStyle = "#253b36";
-        c.fillRect(92, 151, 72, 82);
-        c.fillStyle = "#c9bb8c";
-        c.font = "42px Georgia";
-        c.textAlign = "center";
-        c.fillText("U", 128, 207);
+        c.beginPath();
+        c.moveTo(25, 77);
+        c.lineTo(231, 77);
+        c.moveTo(25, 307);
+        c.lineTo(231, 307);
+        c.stroke();
+      } else {
+        c.strokeStyle = "#a2adaf";
+        c.lineWidth = 2;
+        c.strokeRect(17, 17, 222, 350);
+        c.fillStyle = "#c8ceca";
+        c.fillRect(109, 156, 10, 72);
+        c.fillRect(137, 156, 10, 72);
       }
     },
   );
 }
 export function woodTexture() {
   return texture("wood", 512, 512, (c) => {
-    c.fillStyle = "#4d3525";
+    c.fillStyle = "#493b30";
     c.fillRect(0, 0, 512, 512);
     for (let i = 0; i < 1500; i++) {
       const y = (i * 31.713) % 512;
@@ -116,14 +95,14 @@ export function woodTexture() {
 }
 export function labelTexture(text: string) {
   return texture(`label${text}`, 512, 160, (c) => {
-    c.fillStyle = "#151b17";
+    c.fillStyle = "#242d32";
     c.fillRect(0, 0, 512, 160);
-    c.strokeStyle = "#a99365";
+    c.strokeStyle = "#526065";
     c.lineWidth = 3;
     c.strokeRect(8, 8, 496, 144);
-    c.fillStyle = "#e0d2a3";
+    c.fillStyle = "#dedfd8";
     c.textAlign = "center";
-    c.font = `${text.length > 8 ? 35 : 64}px Georgia`;
+    c.font = `600 ${text.length > 8 ? 35 : 64}px Arial, sans-serif`;
     c.fillText(text, 256, 104);
   });
 }
