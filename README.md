@@ -1,5 +1,7 @@
 # USOTUKI — BIG or SMALL
 
+**プレイ：https://usotuki.app/**
+
 一枚のカードで読み合う、縦画面専用の3D対戦ゲーム。普通の人間のNPCとテーブルを挟んで対戦します。1〜13の札を使い切る13ラウンドのローカルBot戦です。React、TypeScript、Vite、Three.js、React Three Fiberで実装。オンラインAPIや課金はありません。
 
 ## 起動
@@ -42,6 +44,6 @@ npm run preview
 - [将来のオンライン設計](docs/online-future.md)
 - [ライセンス](THIRD_PARTY_NOTICES.md)
 
-Android実機未検証。実機30fpsや1,000部屋のオンライン性能を保証しません。本番usotuki.appへの公開とDNS変更は明示承認後に行います。
+Android実機未検証。実機30fpsや1,000部屋のオンライン性能を保証しません。usotuki.appへの初回公開とドメイン接続は明示承認を受けて実施済みです。
 
 画面はPCでも最大480pxの縦型です。スマホの横向きでは縦向きへの案内を表示し、自動進行を停止します。

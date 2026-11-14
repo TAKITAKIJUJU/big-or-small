@@ -1,6 +1,20 @@
 # ビルドとCloudflare公開手順
 
-確認日：2026-11-14。**この作業では本番公開、DNS変更、プラン変更、秘密登録、サーバーリソース作成を行っていない。**
+確認日：2026-11-14。ユーザーの明示承認を受け、本番へ公開済み。
+
+## 公開中のURL
+
+**https://usotuki.app/**
+
+Cloudflare Worker `usotuki` のStatic Assetsのみで配信する。動的コードなし（API確認で`has_modules: false`）、bindingsなし、Worker Cacheなし、`run_worker_first: false`。プラン変更、DB、Durable Objects、課金APIは追加していない。
+
+検証済みビルドの7ファイルを公式のDirect Uploads APIでアップロードし、Custom Domainを接続。Cloudflareが管理するプロキシ付きAAAAレコードが作成された。HTTPS 200と全アセットのバイト一致、公開URLでの3D表示・13ラウンド完走・履歴・再戦を確認済み。
+
+ソースは`3de022c`、配信ファイルは既存リポジトリの`codex/usotuki-static-release`ブランチ、コミット`94e8849d2010880df2726266dcc5c66d8961a294`に保存。秘密を含まない配信記録は`deployment/production.json`。
+
+接続済みCloudflareツールを利用できたため、CLIへの認証情報の受け渡しは行わず公式APIを使用した。アセット用の短期JWTはメモリと非表示の標準入力でのみ扱い、ソース・ファイル・出力ログへ保存していない。
+
+公式API手順：https://developers.cloudflare.com/workers/static-assets/direct-upload/
 
 ## 今の成果物とプレビュー
 
@@ -17,12 +31,12 @@ Playwrightは独立したローカルのテスト用サーバーを立ち上げ�
 - `usotuki.app` のZoneは `active`。
 - ネームサーバーは `byron.ns.cloudflare.com` と `noor.ns.cloudflare.com`。
 - SSL verificationは `certificate_status: active`、ワイルドカードのUniversal証明書。
-- `name=usotuki.app` のDNSレコードは0件。ZoneがActiveでも、ゲームが配信されていることを意味しない。
-- 実際のHTTPSページ配信とAndroidからの証明書チェーンは未検証。
+- 公開前のルートDNSは0件。公開時にCustom Domainが管理するプロキシ付きAAAAレコードを作成。
+- HTTPS配信と仮想環境Chromiumの対戦開始は確認済み。Android実機は未検証。
 
 別ドメインや別リポジトリへは公開しない。
 
-## 初回の公開準備（Codexクラウド環境で実施可能）
+## CLIで更新する場合の参考手順（今回の公開は上記API経由）
 
 新規Cloudflare設定なので公式推奨の `cf` を選ぶ。既存Wrangler設定はない。2026-11-14時点で npm の `cf` は `1.0.0-beta.32`。betaの設定を想像して追加せず、CLIの自動構成をレビューして導入する。現在のアプリはViteだけでビルドでき、Cloudflare CLIを起動依存にしない。
 

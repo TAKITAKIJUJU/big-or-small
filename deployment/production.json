@@ -1,0 +1,43 @@
+{
+  "url": "https://usotuki.app/",
+  "worker": "usotuki",
+  "publishedAt": "2026-11-14",
+  "sourceCommit": "3de022c",
+  "buildCommit": "94e8849d2010880df2726266dcc5c66d8961a294",
+  "deploymentId": "28ebdfd147bd46d8a4afa492bafd2133",
+  "compatibilityDate": "2026-11-14",
+  "assetsOnly": true,
+  "runWorkerFirst": false,
+  "workerCacheEnabled": false,
+  "bindings": [],
+  "manifest": {
+    "/index.html": {
+      "hash": "863af92f99d44c56a3e7dd58bfa29e4c",
+      "size": 763
+    },
+    "/licenses.txt": {
+      "hash": "2a969ac4e05344b0ec3a98faae5035ca",
+      "size": 20021
+    },
+    "/favicon.svg": {
+      "hash": "9a41ae7844575914b5041a8fa61ab9c7",
+      "size": 196
+    },
+    "/assets/index-B0BSDpqR.js": {
+      "hash": "f42fbd0607cfcdf47d0e802ac5fe6196",
+      "size": 244628
+    },
+    "/assets/TableScene-D6P2mqy0.js": {
+      "hash": "3c476460024ed2b8799f5d32014eeaed",
+      "size": 16793
+    },
+    "/assets/three-KJcA9O8H.js": {
+      "hash": "ce0f0a62871c58f2d112122b61460a4c",
+      "size": 943457
+    },
+    "/assets/index-D7UdjiY3.css": {
+      "hash": "625f32b1e1b8ba316f3ad8391c671b99",
+      "size": 13669
+    }
+  }
+}

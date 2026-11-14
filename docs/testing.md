@@ -68,6 +68,16 @@
 
 - **P1：Android実機**。普及価格帯端末で30fps目標、タップ、スワイプ、縦横回転、safe-area、ブラウザ上下バー、復帰、発熱、電池、音の自動再生制限を確認する。
 - **P1：実機のアクセシビリティ**。DOMのボタン、ラベル、dialog、同等操作、Reduced Motionは実装済み。TalkBackや外付けキーボードによる読み上げ・フォーカス順の実機検証は未実施。
-- **P1：プレビュー転送**。環境のrelayが利用不能で、Androidへ直接開けるURLは未発行。転送基盤の復旧か、承認後の静的ホスティングが必要。
-- **P2：Cloudflareの実配信検証**。Vite製品ビルドまで成功。cf構成生成・Build Output・dry-run・DNS接続・HTTPS配信は未実施。公開作業の手順と承認対象はdeployment.md。
+- **P1：プレビュー転送**。環境のrelayは未復旧。本番URL https://usotuki.app/ を公開し、そちらで操作可能。
+- **P2：Cloudflareの実配信検証**。接続済みツールと公式APIで静的配信・DNS接続・HTTPS・本番E2Eまで成功。cf CLIの構成生成とdry-runは今回使用していない。公開記録はdeployment.md。
 - **将来のみ：オンライン負荷**。100/1,000同時部屋の試験は未実施。オンライン自体は今回実装していない。
+
+## 本番URLの検証（2026-11-14）
+
+ユーザー承認後に https://usotuki.app/ へ静的配信を公開。HTTPS 200と配信7ファイルのバイト一致を確認（`/index.html`は`/`への正規化リダイレクトを追跡）。
+
+公開直後は検証環境のプロキシが `No approved upstream IPv4 address` を返し、一部モジュールの読込と最初のE2Eが失敗。DNS反映後、通常の公開URLで3D表示・対戦開始を確認したうえで再実行し、13ラウンド完走・履歴・再戦の本番E2Eが成功（1件、約32秒）。
+
+実行：`PLAYWRIGHT_BASE_URL=https://usotuki.app npm run test:e2e -- --grep '実操作で13ラウンド完走'`
+
+本番でもNPCの情報境界・乱数・ルールは検証済みのローカル版と同じビルドを使う。Android実機未検証。
