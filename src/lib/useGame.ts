@@ -15,6 +15,7 @@ import {
   type Settings,
 } from "./session";
 import { playSound, syncAmbient } from "./audio";
+import type { Entry } from "./session";
 import { requestBotAction } from "./bot-client";
 export function useGame() {
   const initial = useRef<ReturnType<typeof load> | null>(null);
@@ -98,8 +99,12 @@ export function useGame() {
   function newGame(config: Settings) {
     pendingBot.current?.cancel();
     pendingBot.current = null;
-    setRevealPending(false);
     let next = createGame(config.allIn);
+    const entries: Entry[] = [];
+    const roll = secureRandom();
+    next = transition(next, { type: "draw" }, () => roll);
+    entries.push({ command: { type: "draw" }, roll });
+    setRevealPending(true);
     const decision = decideCard(
       getPlayerView(next, "bot", false),
       config.difficulty,
@@ -114,7 +119,7 @@ export function useGame() {
     session.current = {
       ruleset: next.ruleset,
       allIn: config.allIn,
-      entries: [{ command }],
+      entries: [...entries, { command }],
       botDecisions: [decision.log],
     };
     internal.current = next;

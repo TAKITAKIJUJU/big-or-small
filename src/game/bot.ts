@@ -34,7 +34,7 @@ export interface BotLog {
   reason: BotReason;
 }
 export const REASON_TEXT: Record<BotReason, string> = {
-  reserve: "後半の大きい勝負に使う札を残し、今回は温存しやすい札を選んだ。",
+  reserve: "今の勝負と残りの回を比べ、別の勝負に使う札を残した。",
   "use-now": "残りチップと今の賭け金を見て、強く張れる札をここで使った。",
   "mixed-card":
     "残りの札と今後の参加料を比べ、選択が固定されないよう候補を混ぜた。",
@@ -90,7 +90,7 @@ function sample<T extends { probability: number }>(
 }
 const power = (card: number, range: CardBelief[]) =>
   Math.abs(equity(card, "BIG", range).equity - 0.5) * 2;
-/** 抽選前に、今回の利益と残す札の機会価値を全候補で比較する。 */
+/** 公開モードでの今回の価値と、残す札の機会価値を全候補で比較する。 */
 export function cardPolicy(
   view: PlayerView,
   difficulty: Difficulty,
@@ -127,8 +127,12 @@ export function cardPolicy(
         .map((x) => x.value)
         .sort((a, b) => a - b),
       future = [...slots.slice(1)].sort((a, b) => a - b);
+    const distribution = view.mode ? equity(card, view.mode, model.range) : null;
+    const immediate = view.ruleset === "open" && distribution
+      ? (distribution.win - distribution.lose) * (view.pot + Math.min(own, enemy) * 0.35)
+      : slots[0] * value;
     const score =
-      slots[0] * value +
+      immediate +
       futureFactor *
         remaining.reduce((sum, v, i) => sum + v * (future[i] ?? 0), 0);
     return { card, score, probability: 0 };
@@ -155,11 +159,15 @@ export function decideCard(
   const reserved =
     options.some((x) => Math.abs(x.card - 7) > Math.abs(chosen.card - 7)) &&
     view.round < 11;
-  const reason: BotReason = reserved
+  let reason: BotReason = reserved
     ? "reserve"
     : Math.abs(chosen.card - 7) >= Math.max(...poles) && view.round > 5
       ? "use-now"
       : "mixed-card";
+  if (view.ruleset === "open" && view.mode) {
+    const strength = equity(chosen.card, view.mode, analyseOpponent(view).range).equity;
+    reason = strength >= 0.65 ? "use-now" : reserved ? "reserve" : "mixed-card";
+  }
   return {
     card: chosen.card,
     log: { round: view.round, kind: "card" as const, reason },

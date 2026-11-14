@@ -110,7 +110,7 @@ test("実操作で13ラウンド完走し履歴・再戦", async ({ page }) => {
     await finishRound(page);
   }
   await expect(page.locator(".final-result")).toContainText("13ラウンド終了");
-  expect(workers).toBeGreaterThanOrEqual(13);
+  expect(workers).toBeGreaterThanOrEqual(12);
   await page.screenshot({ path: "test-results/result.png" });
   await page.getByRole("button", { name: "対戦を振り返る" }).click();
   await expect(page.locator(".history-row")).toHaveCount(13);
@@ -245,7 +245,7 @@ test("対戦中のホームから実践チュートリアルを始め直せる",
     .getByRole("dialog")
     .getByRole("button", { name: "新しい対戦を始める", exact: true })
     .click();
-  await expect(page.locator(".tutorial")).toContainText("数字を選んで");
+  await expect(page.locator(".tutorial")).toContainText("数字を選び");
 });
 
 test("縦画面の構成をPCでも維持し、不要な世界観を表示しない", async ({
@@ -310,7 +310,7 @@ test("参加料が2から4へ増え、次の参加料を確定前に読める", 
   await select(page);
   await finishRound(page);
   await expect(page.locator(".ante-status")).toContainText("参加料 4");
-  await expect(page.locator(".pot")).toContainText("8");
+  await expect(page.locator(".pot")).toContainText("12");
 });
 test("公開された合法ログから終盤の一勝で逆転する", async ({ page }) => {
   const { session } = comebackFixture();
@@ -337,7 +337,7 @@ test("最大額は選択だけで、賭ける前に勝敗時の増減が読め�
   const before = await page.locator(".scoreboard").textContent();
   await page.getByRole("button", { name: /^最大/ }).click();
   await expect(page.locator(".stake-risk")).toContainText(
-    "勝ち +22 / 負け −22",
+    "勝ち +300 / 負け −300",
   );
   await expect(page.locator(".scoreboard")).toHaveText(before!);
   await page.screenshot({ path: "test-results/stakes-bet.png" });

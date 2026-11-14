@@ -1,5 +1,7 @@
 # USOTUKI 初期版の要件
 
+2026-11-14の追加採用：新規対戦はopen。BIG／SMALLを選札前に公開、全回有効スタックまで、同数は追加分返還・参加料持越（最終回・続行不能時は折半）。旧試合のルールは再開時に維持。現在の定義はgame-rules.mdを優先する。
+
 2026-11-14。対象リポジトリは TAKITAKIJUJU/big-or-small。既存は README と .gitignore のみ。ブランチ `codex/usotuki-3d-bot` で実装する。
 
 - プレイヤー1人とローカルBot。通信、登録、広告、課金、外部AI APIなし。

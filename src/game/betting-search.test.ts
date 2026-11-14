@@ -5,7 +5,7 @@ import { solveBetting } from "./betting-search";
 
 const play = (s: GameState, c: GameCommand) => transition(s, c, () => 0);
 function firstView(card: number, bet = 0, allIn = false) {
-  let s = createGame(allIn);
+  let s = createGame(allIn, "pressure");
   s = play(s, { type: "select", player: "bot", card });
   s = play(s, { type: "select", player: "human", card: 8 });
   s = play(s, { type: "draw" });
@@ -13,7 +13,7 @@ function firstView(card: number, bet = 0, allIn = false) {
   return getPlayerView(s, "bot", false);
 }
 function secondView(card: number) {
-  let s = createGame(true);
+  let s = createGame(true, "pressure");
   for (const player of ["human", "bot"] as const) s = play(s, { type: "select", player, card: 7 });
   s = play(s, { type: "draw" });
   for (let i = 0; i < 2; i++) s = play(s, { type: "act", player: s.turn, action: { type: "check" } });
@@ -60,7 +60,7 @@ describe("公開範囲による賭けの先読み", () => {
     expect(solveBetting(v).options).toEqual(solveBetting(copy).options);
   });
   it("最終回はチップ期待値より、FOLDすれば確定する試合勝利を取る", () => {
-    let s = createGame();
+    let s = createGame(false, "pressure");
     const botCards = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13];
     for (let r = 1; r <= 12; r++) {
       s = play(s, { type: "select", player: "bot", card: botCards[r - 1] });

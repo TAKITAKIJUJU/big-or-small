@@ -9,9 +9,13 @@ async function setup(page: Page) {
     const ActualWorker = window.Worker;
     window.Worker = class extends ActualWorker {
       postMessage(message: unknown, options?: StructuredSerializeOptions | Transferable[]) {
-        const target = window as typeof window & { botRequests?: unknown[] };
+        const target = window as typeof window & { botRequests?: unknown[]; botResponses?: unknown[] };
         target.botRequests ??= [];
         target.botRequests.push(structuredClone(message));
+        this.addEventListener("message", event => {
+          target.botResponses ??= [];
+          target.botResponses.push(structuredClone(event.data));
+        }, { once: true });
         Reflect.apply(ActualWorker.prototype.postMessage, this, [message, options]);
       }
     };
@@ -39,6 +43,8 @@ test("上級は実際のWorkerで計算し、人間の伏せ札を送らずに�
   })).toBeGreaterThan(0);
   const request = await page.evaluate(() => (window as typeof window & {botRequests: {view: Record<string, unknown>}[]}).botRequests[0]);
   expect(workers).toBeGreaterThan(0);
+  const response = await page.evaluate(() => (window as typeof window & {botResponses: {decision: unknown}[]}).botResponses[0]);
+  expect(response.decision).toBeTruthy();
   expect(request.view.viewer).toBe("bot");
   expect(request.view).not.toHaveProperty("selected");
   expect(request.view).not.toHaveProperty("hands");
@@ -79,7 +85,8 @@ test("上級の計算中に再戦しても、前の試合の返答が混ざら�
   await expect(page.getByRole("group", { name: "あなたの手札" }).getByRole("button")).toHaveCount(13);
   await page.waitForTimeout(3500);
   const session = await page.evaluate(() => JSON.parse(localStorage.getItem("usotuki.v1")!).session);
-  expect(session.entries).toHaveLength(1);
-  expect(session.entries[0].command.type).toBe("select");
+  expect(session.entries).toHaveLength(2);
+  expect(session.entries[0].command.type).toBe("draw");
+  expect(session.entries[1].command.type).toBe("select");
   expect(session.botDecisions).toHaveLength(1);
 });

@@ -1,9 +1,24 @@
 import { createGame, transition, type GameCommand } from "../src/game/engine";
 import type { Session } from "../src/lib/session";
+/** 新ルールの全額同数。追加分を返し、4だけ中央に残す合法ログ。 */
+export function openCarryFixture() {
+  const session: Session = { ruleset: "open", allIn: false, entries: [] };
+  let state = createGame();
+  const apply = (command: GameCommand) => {
+    state = transition(state, command, () => 0);
+    session.entries.push({ command, ...(command.type === "draw" ? { roll: 0 } : {}) });
+  };
+  apply({ type: "draw" });
+  apply({ type: "select", player: "bot", card: 13 });
+  apply({ type: "select", player: "human", card: 13 });
+  apply({ type: "act", player: "human", action: { type: "bet", total: 298 } });
+  apply({ type: "act", player: "bot", action: { type: "call" } });
+  return { state, session };
+}
 /** 合法ログだけで160対440を作る。製品のBotや乱数には手を加えない。 */
 export function comebackFixture() {
   const session: Session = { ruleset: "pressure", allIn: false, entries: [] };
-  let state = createGame();
+  let state = createGame(false, "pressure");
   const apply = (command: GameCommand, roll?: number) => {
     state = transition(state, command, () => roll ?? 0);
     session.entries.push({ command, ...(roll === undefined ? {} : { roll }) });

@@ -2,47 +2,56 @@
   "url": "https://usotuki.app/",
   "worker": "usotuki",
   "publishedAt": "2026-11-14",
-  "sourceCommit": "138d63f89df937cfe6b714c64a4d85584d4d994e",
-  "buildCommit": "3a229f419bf41bf6f788ffb1f9faa6bf9dd8cd9a",
-  "deploymentId": "240e3f523e304645b2b640c7739d5eb9",
+  "sourceCommit": "34b3654f71d31ac27910c5aea9094b516125bb01",
+  "buildCommit": "82c2152d317b4324d19506f60a46b3d092a2acf3",
+  "deploymentId": "596320817446476ca855a9bd5f998379",
   "compatibilityDate": "2026-11-14",
   "assetsOnly": true,
   "runWorkerFirst": false,
   "workerCacheEnabled": false,
   "bindings": [],
   "manifest": {
-    "/index.html": {
-      "hash": "5c4a18f1551dbf8f75d55cff91d926db",
-      "size": 763
-    },
-    "/licenses.txt": {
-      "hash": "2a969ac4e05344b0ec3a98faae5035ca",
-      "size": 20021
-    },
-    "/favicon.svg": {
-      "hash": "9a41ae7844575914b5041a8fa61ab9c7",
-      "size": 196
-    },
     "/assets/TableScene-D6P2mqy0.js": {
       "hash": "3c476460024ed2b8799f5d32014eeaed",
       "size": 16793
     },
-    "/assets/three-KJcA9O8H.js": {
-      "hash": "ce0f0a62871c58f2d112122b61460a4c",
-      "size": 943457
+    "/assets/bot.worker-nOxVJ7Yr.js": {
+      "hash": "dc9794b8e9b7ce4445257cdc0aa06328",
+      "size": 14222
     },
     "/assets/index-BtM8jEd_.css": {
       "hash": "b19452884e67415c509bfe313c0cf67c",
       "size": 15633
     },
-    "/assets/index-DA6Bv0ug.js": {
-      "hash": "ecf43139c62c92fb874fc20332222a08",
-      "size": 258641
+    "/assets/index-JvT8tILJ.js": {
+      "hash": "a114c85a1cd8756570ace494cd0e0bc3",
+      "size": 265903
+    },
+    "/assets/three-KJcA9O8H.js": {
+      "hash": "ce0f0a62871c58f2d112122b61460a4c",
+      "size": 943457
+    },
+    "/favicon.svg": {
+      "hash": "9a41ae7844575914b5041a8fa61ab9c7",
+      "size": 196
+    },
+    "/index.html": {
+      "hash": "4a0e6ed48b39fd96fa54bc0f039f6829",
+      "size": 763
+    },
+    "/licenses.txt": {
+      "hash": "2a969ac4e05344b0ec3a98faae5035ca",
+      "size": 20021
     }
   },
-  "previousDeploymentId": "d0762116f262401f9595904e846f46d7",
-  "updatedAt": "2026-11-14T15:58:51.619627+00:00",
+  "previousDeploymentId": "240e3f523e304645b2b640c7739d5eb9",
+  "updatedAt": "2026-11-14T17:09:24.653751+00:00",
   "ruleset": "pressure",
   "legacySavedRuleset": "classic",
-  "botStrategy": "public-range-v2"
+  "botStrategy": "public-range-cfr-v3",
+  "search": {
+    "method": "CFR+型",
+    "iterations": 128,
+    "runsInBrowserWorker": true
+  }
 }

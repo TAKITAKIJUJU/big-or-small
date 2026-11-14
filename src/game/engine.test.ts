@@ -28,7 +28,7 @@ const act = (s: GameState, player: Player, action: BetAction) =>
   transition(s, { type: "act", player, action });
 describe("ルールと状態機械", () => {
   it("双方確定前の抽選、確定後の変更、再抽選を拒否", () => {
-    let s = createGame();
+    let s = createGame(false, "pressure");
     expect(() => transition(s, { type: "draw" })).toThrow();
     s = transition(s, { type: "select", player: "human", card: 1 });
     expect(() =>
@@ -164,7 +164,7 @@ describe("ルールと状態機械", () => {
     assertInvariants(s);
   });
   it("13ラウンド・重複なし・独立抽選は過去に依存しない", () => {
-    let s = createGame();
+    let s = createGame(false, "pressure");
     for (let i = 1; i <= 13; i++) {
       s = transition(s, { type: "select", player: "bot", card: i });
       s = transition(s, { type: "select", player: "human", card: i });
@@ -255,7 +255,7 @@ describe("Botの秘密情報境界・保存", () => {
 it("600試合の合法ランダム対局で全状態の600チップ・カード整合・合法Botを検証", () => {
   const random = rng(444);
   for (let trial = 0; trial < 600; trial++) {
-    let s = createGame(trial % 2 === 0),
+    let s = createGame(trial % 2 === 0, "pressure"),
       steps = 0;
     const difficulty = (["easy", "medium", "hard"] as const)[trial % 3];
     while (s.phase !== "finished") {

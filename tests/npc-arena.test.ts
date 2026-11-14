@@ -34,7 +34,7 @@ it("公開情報だけを渡し、抽選と座席をそろえて旧上級およ�
     for (let seed = startSeed; seed < startSeed + seeds; seed++) {
       let pairScore = 0;
       for (const seat of ["human", "bot"] as const) {
-        let s = createGame(process.env.ARENA_ALL_IN === "1");
+        let s = createGame(process.env.ARENA_ALL_IN === "1", "pressure");
         const chance = random(seed * 31), rolls = Array.from({ length: 13 }, chance),
           rngNew = random(seed * 17), rngOld = random(seed * 29);
         while (s.phase !== "finished") {
