@@ -2,6 +2,7 @@ import {
   other,
   type ActionRecord,
   type Mode,
+  type Player,
   type PlayerView,
   type VisibleRound,
 } from "./engine";
@@ -114,11 +115,11 @@ export function actionLikelihood(
   }
   return Math.max(1e-12, likelihood);
 }
-const cache = new WeakMap<PlayerView, OpponentModel>();
-export function analyseOpponent(view: PlayerView): OpponentModel {
-  const cached = cache.get(view);
+const cache = new WeakMap<PlayerView, Partial<Record<Player, OpponentModel>>>();
+/** 公開情報から指定プレイヤーを推定する。自分の実際の手札も参照しない。 */
+export function analysePlayer(view: PlayerView, opponent: Player): OpponentModel {
+  const cached = cache.get(view)?.[opponent];
   if (cached) return cached;
-  const opponent = other(view.viewer);
   let smallN = 0,
     smallF = 0,
     largeN = 0,
@@ -208,11 +209,11 @@ export function analyseOpponent(view: PlayerView): OpponentModel {
           (1 - round.round / 7) * (0.5 - Math.abs(card - 7) / 6);
         reserveN++;
       }
-      const own = round.cards[view.viewer];
+      const own = round.cards[other(opponent)];
       if (
         own !== null &&
         round.actions.some(
-          (a) => a.player === view.viewer && "total" in a.action,
+          (a) => a.player === other(opponent) && "total" in a.action,
         )
       ) {
         if (rankStrength(own, round.mode) < 0.4) ownBluffs++;
@@ -312,6 +313,8 @@ export function analyseOpponent(view: PlayerView): OpponentModel {
     card: n + 1,
     probability,
   }));
-  cache.set(view, model);
+  cache.set(view, { ...cache.get(view), [opponent]: model });
   return model;
 }
+export const analyseOpponent = (view: PlayerView) =>
+  analysePlayer(view, other(view.viewer));

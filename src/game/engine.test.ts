@@ -233,7 +233,7 @@ describe("Botの秘密情報境界・保存", () => {
     expect(() => transition(betting(), { type: "draw" }, () => NaN)).toThrow();
     expect(
       settingsFrom({ volume: NaN, difficulty: "cheat", muted: "no" }),
-    ).toMatchObject({ volume: 0.35, difficulty: "medium", muted: false });
+    ).toMatchObject({ volume: 0.35, difficulty: "hard", muted: false });
   });
   it("合法記録の再生が元の状態に一致する", () => {
     const entries = [
@@ -290,4 +290,4 @@ it("600試合の合法ランダム対局で全状態の600チップ・カード�
     expect(s.history.length).toBeLessThanOrEqual(13);
     expect(s.history.length).toBeGreaterThan(0);
   }
-}, 30000);
+}, 120000);

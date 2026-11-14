@@ -28,4 +28,4 @@ Botへの入力は `getPlayerView(state, 'bot', false)`。Botにはstateも人�
 
 保存形式は同じv1のままSessionにrulesetを追加。省略時はclassic、新規はpressure。エンジンは実際の参加料・規定額・追加上限をPlayerViewへ出し、UIは同じ値を表示する。旧ログの金額は変更しない。
 
-NPCはbot.tsの候補評価とopponent-model.tsの公開情報推定に分離。モデルは公開ビューのスナップショットのみを参照し、残りカード集合の分布を再構築する。Session.botDecisionsは任意の理由ログで、ルールの再生には影響しない。UIへ渡すのは終了後・開示ONの場合だけ。詳細はnpc-strategy.md。
+NPCはbot.tsの選札・理由記録、opponent-model.tsの公開情報推定、betting-search.tsの上級向けCFR+型探索に分離。探索はbot.worker.tsで実行し、bot-client.tsが公開ビューだけを送り、停止・再戦時の古い返答を捨てる。Worker不可時も同じ方策で継続。モデルは公開ビューのスナップショットのみを参照し、残りカード集合の分布を再構築する。相手が想定する自分の範囲も公開情報から作る。Session.botDecisionsは任意の理由ログで、ルールの再生には影響しない。UIへ渡すのは終了後・開示ONの場合だけ。詳細はnpc-strategy.md。

@@ -183,7 +183,7 @@ function SettingsPanel({
         </select>
       </label>
       <small className="strategy-help">
-        初級は読みやすく、中級は札の温存と駆け引き、上級は相手の降り方や見せたブラフも判断に使います。
+        初級は読みやすく、中級は札の温存と駆け引き。上級はレイズの応酬まで読み、相手の降り方や見せたブラフに合わせて戦略を変えます。
       </small>
       <label>
         演出の速度
@@ -534,6 +534,8 @@ export default function App() {
       (view.phase === "betting" && view.turn === "bot"));
   const stepRef = useRef(game.step);
   stepRef.current = game.step;
+  const cancelBotRef = useRef(game.cancelBot);
+  cancelBotRef.current = game.cancelBot;
   const revealRef = useRef(game.completeReveal);
   revealRef.current = game.completeReveal;
   useEffect(() => {
@@ -578,7 +580,10 @@ export default function App() {
         game.revealPending ? revealRef.current() : stepRef.current(revision),
       delay,
     );
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      cancelBotRef.current();
+    };
   }, [
     revision,
     screen,

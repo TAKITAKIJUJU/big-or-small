@@ -19,7 +19,7 @@ export interface Settings {
   tutorialSeen: boolean;
 }
 export const defaults: Settings = {
-  difficulty: "medium",
+  difficulty: "hard",
   speed: "normal",
   quality: "auto",
   reduced: false,

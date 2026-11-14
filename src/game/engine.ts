@@ -178,7 +178,10 @@ export function effectiveCap(
     s.chips.bot + s.contributions.bot,
   );
 }
-export function getLegalActions(s: GameState, p: Player): BetAction[] {
+export type BettingPosition = Pick<GameState,
+  "phase" | "turn" | "chips" | "contributions" | "betLimit" | "raises" | "allIn" | "ruleset"
+>;
+export function getLegalActions(s: BettingPosition, p: Player): BetAction[] {
   if (s.phase !== "betting" || s.turn !== p) return [];
   const own = s.contributions[p],
     target = Math.max(s.contributions.human, s.contributions.bot),
