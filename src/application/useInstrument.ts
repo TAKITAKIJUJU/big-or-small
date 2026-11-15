@@ -35,6 +35,7 @@ export function useInstrument(signalActive: boolean) {
     [fault, setFault] = useState(false),
     [saving, setSaving] = useState(false),
     [elapsed, setElapsed] = useState(0),
+    [countdown, setCountdown] = useState(0),
     [wakeNotice, setWakeNotice] = useState(""),
     [previewPlaying, setPreviewPlaying] = useState(false),
     [audioReady, setAudioReady] = useState(false),
@@ -42,6 +43,12 @@ export function useInstrument(signalActive: boolean) {
     [audioNotice, setAudioNotice] =
       useState("時報は試聴で動作を確認してください"),
     [, force] = useState(0);
+  const countdownDeadline = useRef<number | null>(null);
+  function cancelCountdown() {
+    countdownDeadline.current = null;
+    setCountdown(0);
+    cancelSound(true);
+  }
   const signalOrigin = useRef<number | null>(null);
   const currentRef = useRef<Match | null>(null),
     faultRef = useRef(false),
@@ -137,16 +144,37 @@ export function useInstrument(signalActive: boolean) {
   }, []);
   useEffect(() => {
     const timer = setInterval(() => {
+      if (countdownDeadline.current !== null) {
+        const at = countdownDeadline.current;
+        if (performance.now() >= at) {
+          countdownDeadline.current = null;
+          if (faultRef.current || document.hidden) {
+            setCountdown(0);
+            return;
+          }
+          clock.start(at);
+          signalOrigin.current = clock.startedMonotonic;
+          setCountdown(0);
+          setAudioRevision((n) => n + 1);
+        } else setCountdown(Math.ceil((at - performance.now()) / 1000));
+      }
       clock.tick();
       if (clock.running) setElapsed(clock.elapsed());
     }, 40);
     const hidden = () => {
       if (document.hidden) {
+        countdownDeadline.current = null;
+        setCountdown(0);
         clock.interrupt("画面が非表示になったため無効・やり直し");
         cancelSound(true);
       }
     };
-    const hide = () => clock.interrupt("ページを離れたため無効・やり直し");
+    const hide = () => {
+      countdownDeadline.current = null;
+      setCountdown(0);
+      cancelSound(true);
+      clock.interrupt("ページを離れたため無効・やり直し");
+    };
     const before = (event: BeforeUnloadEvent) => {
       if (clock.running) {
         event.preventDefault();
@@ -205,7 +233,7 @@ export function useInstrument(signalActive: boolean) {
       cancelSound();
     };
   }, [settings, audioRevision, signalActive, clock]);
-  const active = !!current?.active;
+  const active = !!current?.active || countdown > 0;
   useEffect(() => {
     if (!active) return;
     let lock: WakeLockSentinel | undefined,
@@ -293,12 +321,17 @@ export function useInstrument(signalActive: boolean) {
     }
   }
   function start() {
-    if (!faultRef.current && !saving) {
-      clock.start();
-      signalOrigin.current = clock.startedMonotonic;
+    if (
+      !faultRef.current &&
+      !saving &&
+      !clock.running &&
+      countdownDeadline.current === null
+    ) {
+      signalOrigin.current = null;
       cancelSound(true);
+      countdownDeadline.current = performance.now() + 3000;
+      setCountdown(3);
       setAudioRevision((revision) => revision + 1);
-      stopPreview();
       void audio();
     }
   }
@@ -320,6 +353,8 @@ export function useInstrument(signalActive: boolean) {
     fault,
     saving,
     elapsed,
+    countdown,
+    cancelCountdown,
     wakeNotice,
     audioNotice,
     audioReady,

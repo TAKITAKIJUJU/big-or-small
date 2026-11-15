@@ -97,3 +97,12 @@ it("非表示で無効化し、後からタイマーを進めても偽の結果�
   expect(derive(t.get()).turns).toHaveLength(0);
   expect(t.get().active).toBeNull();
 });
+
+it("カウントダウンの締切を過ぎて処理しても、指定の起点で計測する", () => {
+  const t = setup();
+  t.advance(3040);
+  t.c.start(3000);
+  expect(t.c.elapsed()).toBe(40);
+  t.advance(13000);
+  expect(t.c.elapsed()).toBe(10000);
+});

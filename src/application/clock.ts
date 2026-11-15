@@ -38,11 +38,12 @@ export class TurnClock {
   get dropped() {
     return this.live?.drop ?? null;
   }
-  start() {
+  start(at?: number) {
     const match = this.read();
     if (!match || this.live) return;
-    const start = this.clock.monotonic(),
-      startedAt = this.clock.wall();
+    const now = this.clock.monotonic(),
+      start = at ?? now,
+      startedAt = this.clock.wall() - Math.max(0, Math.floor(now - start));
     const next = startTurn(match, { id: this.clock.id(), startedAt });
     this.timedOut = false;
     this.live = { start, drop: null };

@@ -377,7 +377,30 @@ export default function App() {
                   </span>
                 </div>
               )}
-              {running && (
+              {app.countdown > 0 && (
+                <section
+                  className="start-area"
+                  aria-label="開始前カウントダウン"
+                >
+                  <p className="eyebrow">まもなく計測開始</p>
+                  <div
+                    role="timer"
+                    aria-live="assertive"
+                    style={{
+                      fontSize: "clamp(5rem, 25vw, 9rem)",
+                      fontWeight: 800,
+                      textAlign: "center",
+                    }}
+                  >
+                    {app.countdown}
+                  </div>
+                  <p className="footnote center">0になったら60秒の計測開始</p>
+                  <button className="secondary" onClick={app.cancelCountdown}>
+                    開始を取り消す
+                  </button>
+                </section>
+              )}
+              {running && !app.countdown && (
                 <>
                   <Timer elapsed={app.elapsed} />
                   <p className="recording-state" aria-live="polite">
@@ -463,7 +486,7 @@ export default function App() {
                     onClick={app.start}
                   >
                     {d.turns.length ? "次のターンを開始" : "カウント開始"}
-                    <small>押すと即60秒計測</small>
+                    <small>3秒のカウントダウン後に計測</small>
                   </button>
                   <p className="footnote center">
                     両者の準備ができてから。待ち時間の制限はありません。
@@ -788,7 +811,7 @@ export default function App() {
         </div>
       )}
       <footer className="app-footer">
-        USOTUKI · ハンカチ計時器 · v1.4 <span>記録は端末内のみ</span>
+        USOTUKI · ハンカチ計時器 · v1.5 <span>記録は端末内のみ</span>
       </footer>
     </div>
   );
