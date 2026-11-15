@@ -41,6 +41,8 @@ const paths: Record<Tone, string> = {
 let context: AudioContext | null = null;
 let voiceBuffer: AudioBuffer | null = null;
 let loadingVoice: Promise<void> | null = null;
+let voiceData: Promise<ArrayBuffer> | null = null;
+let voiceAssets: Promise<void> | null = null;
 let mediaReady = false;
 let priming: Promise<void> | null = null;
 const toneMedia = new Map<Tone, HTMLAudioElement>();
@@ -53,9 +55,10 @@ let previewState: ((playing: boolean) => void) | undefined;
 type Pool = {
   nodes: Set<AudioScheduledSourceNode>;
   timers: Set<ReturnType<typeof setTimeout>>;
+  generation: number;
 };
-const scheduled: Pool = { nodes: new Set(), timers: new Set() };
-const preview: Pool = { nodes: new Set(), timers: new Set() };
+const scheduled: Pool = { nodes: new Set(), timers: new Set(), generation: 0 };
+const preview: Pool = { nodes: new Set(), timers: new Set(), generation: 0 };
 type Failure = (message: string) => void;
 function timer(pool: Pool, callback: () => void, delay: number) {
   const id = setTimeout(
@@ -77,25 +80,78 @@ function player(kind: Tone) {
 }
 function voicePlayer(pool = scheduled) {
   if (pool === preview) {
-    previewVoiceMedia ??= new Audio("/time-voice.mp3");
+    previewVoiceMedia ??= new Audio();
+    previewVoiceMedia.dataset.voiceSource = "/time-voice.mp3";
     previewVoiceMedia.preload = "auto";
     return previewVoiceMedia;
   }
-  voiceMedia ??= new Audio("/time-voice.mp3");
+  voiceMedia ??= new Audio();
+  voiceMedia.dataset.voiceSource = "/time-voice.mp3";
   voiceMedia.preload = "auto";
   return voiceMedia;
 }
 const ready = () => context?.state === "running" || mediaReady;
 export const isAudioReady = () => ready() && !previewActive;
-function loadVoice() {
-  if (!context || loadingVoice || voiceBuffer) return;
-  const ctx = context;
-  loadingVoice = fetch("/time-voice.mp3")
+function voiceBytes() {
+  voiceData ??= fetch("/time-voice.mp3")
     .then((r) => {
       if (!r.ok) throw new Error("voice unavailable");
       return r.arrayBuffer();
     })
-    .then((data) => ctx.decodeAudioData(data))
+    .catch((error) => {
+      voiceData = null;
+      throw error;
+    });
+  return voiceData;
+}
+/** 初回のCDN応答がRange非対応でも、全音声をローカルBlobにして確実にシークする。 */
+function prepareVoiceMedia() {
+  voiceAssets ??= voiceBytes()
+    .then(async (bytes) => {
+      const url = URL.createObjectURL(
+        new Blob([bytes], { type: "audio/mpeg" }),
+      );
+      try {
+        await Promise.all(
+          [scheduled, preview].map(
+            (pool) =>
+              new Promise<void>((resolve, reject) => {
+                const audio = voicePlayer(pool);
+                const clean = () => {
+                  audio.removeEventListener("loadedmetadata", loaded);
+                  audio.removeEventListener("error", failed);
+                };
+                const loaded = () => {
+                  clean();
+                  resolve();
+                };
+                const failed = () => {
+                  clean();
+                  reject(new Error("voice metadata unavailable"));
+                };
+                audio.addEventListener("loadedmetadata", loaded);
+                audio.addEventListener("error", failed);
+                audio.src = url;
+                audio.load();
+              }),
+          ),
+        );
+      } catch (error) {
+        URL.revokeObjectURL(url);
+        throw error;
+      }
+    })
+    .catch((error) => {
+      voiceAssets = null;
+      throw error;
+    });
+  return voiceAssets;
+}
+function loadVoice() {
+  if (!context || loadingVoice || voiceBuffer) return;
+  const ctx = context;
+  loadingVoice = voiceBytes()
+    .then((data) => ctx.decodeAudioData(data.slice(0)))
     .then((buffer) => {
       voiceBuffer = buffer;
     })
@@ -130,8 +186,6 @@ export async function unlockAudio() {
     };
     // 同じユーザー操作内で全てのplay()を呼ぶ。
     const toneAttempts = tones.map(prime);
-    void prime(voicePlayer()).catch(() => {});
-    void prime(voicePlayer(preview)).catch(() => {});
     priming = Promise.all(toneAttempts)
       .then(() => {
         mediaReady = true;
@@ -141,6 +195,7 @@ export async function unlockAudio() {
         priming = null;
       });
   }
+  void prepareVoiceMedia().catch(() => {});
   if (priming) attempts.push(priming);
   await Promise.race([
     Promise.allSettled(attempts),
@@ -152,6 +207,7 @@ export async function unlockAudio() {
     );
 }
 function stop(pool: Pool) {
+  pool.generation++;
   for (const node of pool.nodes) {
     try {
       node.stop();
@@ -218,6 +274,7 @@ function speak(
   onFailure?: Failure,
 ) {
   const parts = announcement(wall).keys.map((key) => clips[key]);
+  const poolGeneration = pool.generation;
   let offset = Math.max(0, delayMs);
   for (const part of parts) {
     if (context?.state === "running" && voiceBuffer) {
@@ -241,27 +298,37 @@ function speak(
       timer(
         pool,
         () => {
-          const audio = voicePlayer(pool);
-          audio.pause();
-          audio.currentTime = part.start;
-          audio.volume = p.volume;
-          const generation = (voiceGeneration.get(audio) ?? 0) + 1;
-          voiceGeneration.set(audio, generation);
-          void audio
-            .play()
+          void prepareVoiceMedia()
             .then(() => {
-              if (voiceGeneration.get(audio) !== generation) return;
-              timer(
-                pool,
-                () => {
-                  if (voiceGeneration.get(audio) === generation) audio.pause();
-                },
-                part.length * 1000,
-              );
+              if (pool.generation !== poolGeneration) return;
+              const audio = voicePlayer(pool);
+              audio.pause();
+              audio.currentTime = part.start;
+              audio.volume = p.volume;
+              const generation = (voiceGeneration.get(audio) ?? 0) + 1;
+              voiceGeneration.set(audio, generation);
+              return audio
+                .play()
+                .then(() => {
+                  if (voiceGeneration.get(audio) !== generation) return;
+                  timer(
+                    pool,
+                    () => {
+                      if (voiceGeneration.get(audio) === generation)
+                        audio.pause();
+                    },
+                    part.length * 1000,
+                  );
+                })
+                .catch(() =>
+                  onFailure?.(
+                    "時刻の読み上げを再生できません。試合の合間に再試聴してください",
+                  ),
+                );
             })
             .catch(() =>
               onFailure?.(
-                "時刻の読み上げを再生できません。試合の合間に再試聴してください",
+                "時刻の読み上げを読み込めません。試合の合間に再試聴してください",
               ),
             );
         },

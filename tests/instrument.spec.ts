@@ -385,7 +385,7 @@ test("時報OFFでも試聴は最後まで再生し、WebAudio不可でも毎分
         target.audiblePlays.push({
           at: Date.now(),
           volume: this.volume,
-          src: this.src,
+          src: this.dataset.voiceSource ?? this.src,
           position: this.currentTime,
         });
         this.addEventListener(

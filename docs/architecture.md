@@ -5,7 +5,7 @@
 - application/useInstrument.ts：Reactへの反映、IndexedDB書込キュー、復元、音声、Wake Lock。経過表示は時計の差分を読み、intervalの回数を加算しない。
 - storage/db.ts：バージョン1 IndexedDB。matchesとsettings。試合revisionの楽観ロックで別タブの上書きを拒否。保存失敗は未保存を表示して進行停止、再試行とJSON書出を提供。
 - audio/signal.ts：壁時計の各秒を1秒先まで予約し、毎秒音・57/58/59秒の予告・00秒の長音、13/33/53秒から次の00/20/40秒の読み上げを計画。時計変更・復帰は再同期し、過去の音をまとめて鳴らさない。
-- audio/chime.ts：Web Audioで音と内蔵音声を予約。利用できない場合は操作中に無音準備したHTML Audioへ切り替える。voice-index.jsonの区間を使い、時・分・秒の音声を連結する。試聴は別の音声ファイル・音声ノード・予約を持ち、通常時報を一時休止。設定OFFは通常予約だけ、非表示は全てを止める。音声拒否は画面へ伝える。端末のspeechSynthesisや外部TTSには依存しない。
+- audio/chime.ts：Web Audioで音と内蔵音声を予約。利用できない場合はHTML Audioへ切り替える。voice-index.jsonの区間を使い、時・分・秒の音声を連結する。音声データを一度だけ読み込み、Web AudioのデコードとHTML AudioのローカルBlobで共有。初回のCDN応答がRange非対応でも、Blobのメタデータを待って正しい区間へシークできる。取消世代を確認し、非同期の読込完了が取消後に古い音を鳴らさない。試聴は別の音声ファイル・音声ノード・予約を持ち、通常時報を一時休止。設定OFFは通常予約だけ、非表示は全てを止める。音声拒否は画面へ伝える。端末のspeechSynthesisや外部TTSには依存しない。
 - scripts/generate-audio.py：開発時だけOpen JTalkとNIT ATR503 M001音声で87区間を生成し、波形合成の秒音・予告音・長音と試聴音源を出力。生成物だけを配信し、エンジンや音声モデルは同梱しない。音声の出典・ライセンス・加工内容はaudio-attribution.txtとlicenses.txtに収録。
 - ui/components.tsx：4値を分離したゲージ、60秒計器、履歴の計算根拠、SVG推移図。
 - App.tsx：ホーム、準備、待機、計測、結果、全履歴、過去試合、設定、ルール。白地と濃い文字を使い、計測中は詳細集計を隠す。前ターン結果は次の開始ボタンより前。記録ボタンはpointerdownで採時、キーボードclickも対応。計測中はナビゲーション禁止。
