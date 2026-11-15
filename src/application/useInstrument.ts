@@ -15,15 +15,16 @@ import {
 } from "../storage/db";
 import {
   cancelSound,
-  chime,
+  playSignal,
   isAudioReady,
   DEFAULTS,
-  MinutePlanner,
   preferences,
   previewChime,
+  stopPreview,
   unlockAudio,
   type Preferences,
 } from "../audio/chime";
+import { TimeSignalPlanner } from "../audio/signal";
 import { TurnClock } from "./clock";
 export function useInstrument() {
   const [matches, setMatches] = useState<Match[]>([]),
@@ -161,7 +162,7 @@ export function useInstrument() {
     };
   }, [clock]);
   useEffect(() => {
-    const planner = new MinutePlanner();
+    const planner = new TimeSignalPlanner();
     const step = () => {
       const now = Date.now(),
         plan = planner.step(
@@ -170,13 +171,17 @@ export function useInstrument() {
           settings.chime && isAudioReady() && !document.hidden,
         );
       if (plan.cancel) cancelSound();
-      if (plan.at !== null)
-        chime(settings, plan.at - now, plan.at, () => {
-          setAudioReady(false);
-          setAudioNotice(
-            "時報の再生が拒否されました。次のターンの前に再試聴してください",
-          );
-        });
+      for (const cue of plan.cues)
+        playSignal(
+          settings,
+          cue.tone,
+          cue.at - now,
+          cue.announceAt,
+          (message) => {
+            setAudioReady(isAudioReady());
+            setAudioNotice(message);
+          },
+        );
     };
     const timer = setInterval(step, 200);
     step();
@@ -273,6 +278,7 @@ export function useInstrument() {
   function start() {
     if (!faultRef.current && !saving) {
       clock.start();
+      stopPreview();
       void audio();
     }
   }
@@ -298,6 +304,7 @@ export function useInstrument() {
     audioNotice,
     audioReady,
     previewPlaying,
+    stopPreview,
     audio,
     running: active,
     dropped: clock.dropped,

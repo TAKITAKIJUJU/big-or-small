@@ -1,16 +1,20 @@
+import voiceIndex from "./voice-index.json";
+import { announcement, TONES, type Tone } from "./signal";
 export type Preferences = {
   hand: "left" | "right";
   chime: boolean;
   volume: number;
   voice: boolean;
   reduced: boolean;
+  soundProfile: "time-signal";
 };
 export const DEFAULTS: Preferences = {
   hand: "right",
   chime: true,
   volume: 0.8,
-  voice: false,
+  voice: true,
   reduced: false,
+  soundProfile: "time-signal",
 };
 export function preferences(raw: unknown): Preferences {
   const p = (raw && typeof raw === "object" ? raw : {}) as Partial<Preferences>;
@@ -21,217 +25,336 @@ export function preferences(raw: unknown): Preferences {
       typeof p.volume === "number" && Number.isFinite(p.volume)
         ? Math.max(0, Math.min(1, p.volume))
         : 0.8,
-    voice: p.voice === true,
+    // 旧チャイムから時報へ初めて移行するときは、依頼された読み上げも有効化する。
+    voice: p.soundProfile === "time-signal" ? p.voice !== false : true,
     reduced: p.reduced === true,
+    soundProfile: "time-signal",
   };
 }
-export class MinutePlanner {
-  private previous: { wall: number; mono: number } | null = null;
-  private scheduled: number | null = null;
-  private enabled = false;
-  step(wall: number, mono: number, enabled: boolean) {
-    const jump =
-      this.previous !== null &&
-      Math.abs(wall - this.previous.wall - (mono - this.previous.mono)) > 250;
-    this.previous = { wall, mono };
-    const cancel = jump || (this.enabled && !enabled);
-    this.enabled = enabled;
-    if (!enabled || jump) this.scheduled = null;
-    const boundary =
-      wall % 60000 === 0 ? wall : (Math.floor(wall / 60000) + 1) * 60000;
-    let at: number | null = null;
-    if (enabled && boundary - wall <= 1200 && this.scheduled !== boundary) {
-      at = boundary;
-      this.scheduled = boundary;
-    }
-    return { cancel, at };
-  }
-}
-
-let context: AudioContext | null = null;
-let scheduledMedia: HTMLAudioElement | null = null;
-let previewMedia: HTMLAudioElement | null = null;
-let mediaReady = false;
-let sounds: OscillatorNode[] = [];
-let previewSounds: OscillatorNode[] = [];
-let scheduledTimer: ReturnType<typeof setTimeout> | null = null;
-let voiceTimer: ReturnType<typeof setTimeout> | null = null;
-let previewTimer: ReturnType<typeof setTimeout> | null = null;
-let previewState: ((playing: boolean) => void) | undefined;
-const media = () => {
-  scheduledMedia ??= new Audio("/chime.wav");
-  scheduledMedia.preload = "auto";
-  return scheduledMedia;
+const clips: Record<string, { start: number; length: number; text: string }> =
+  voiceIndex;
+const paths: Record<Tone, string> = {
+  tick: "/tick.wav",
+  pip: "/pip.wav",
+  bell: "/chime.wav",
 };
-export const isAudioReady = () => context?.state === "running" || mediaReady;
-
-/** ユーザー操作中に両方の再生経路を準備する。準備時は音を出さない。 */
+let context: AudioContext | null = null;
+let voiceBuffer: AudioBuffer | null = null;
+let loadingVoice: Promise<void> | null = null;
+let mediaReady = false;
+let priming: Promise<void> | null = null;
+const toneMedia = new Map<Tone, HTMLAudioElement>();
+let voiceMedia: HTMLAudioElement | null = null;
+let previewMedia: HTMLAudioElement | null = null;
+let previewVoiceMedia: HTMLAudioElement | null = null;
+let previewActive = false;
+const voiceGeneration = new WeakMap<HTMLAudioElement, number>();
+let previewState: ((playing: boolean) => void) | undefined;
+type Pool = {
+  nodes: Set<AudioScheduledSourceNode>;
+  timers: Set<ReturnType<typeof setTimeout>>;
+};
+const scheduled: Pool = { nodes: new Set(), timers: new Set() };
+const preview: Pool = { nodes: new Set(), timers: new Set() };
+type Failure = (message: string) => void;
+function timer(pool: Pool, callback: () => void, delay: number) {
+  const id = setTimeout(
+    () => {
+      pool.timers.delete(id);
+      callback();
+    },
+    Math.max(0, delay),
+  );
+  pool.timers.add(id);
+}
+function player(kind: Tone) {
+  if (!toneMedia.has(kind)) {
+    const audio = new Audio(paths[kind]);
+    audio.preload = "auto";
+    toneMedia.set(kind, audio);
+  }
+  return toneMedia.get(kind)!;
+}
+function voicePlayer(pool = scheduled) {
+  if (pool === preview) {
+    previewVoiceMedia ??= new Audio("/time-voice.mp3");
+    previewVoiceMedia.preload = "auto";
+    return previewVoiceMedia;
+  }
+  voiceMedia ??= new Audio("/time-voice.mp3");
+  voiceMedia.preload = "auto";
+  return voiceMedia;
+}
+const ready = () => context?.state === "running" || mediaReady;
+export const isAudioReady = () => ready() && !previewActive;
+function loadVoice() {
+  if (!context || loadingVoice || voiceBuffer) return;
+  const ctx = context;
+  loadingVoice = fetch("/time-voice.mp3")
+    .then((r) => {
+      if (!r.ok) throw new Error("voice unavailable");
+      return r.arrayBuffer();
+    })
+    .then((data) => ctx.decodeAudioData(data))
+    .then((buffer) => {
+      voiceBuffer = buffer;
+    })
+    .catch(() => {
+      /* Prepared HTML Audio remains available. */
+    })
+    .finally(() => {
+      loadingVoice = null;
+    });
+}
+/** 操作中に再生経路を無音で準備。開始時の採時を待たせない。 */
 export async function unlockAudio() {
   const attempts: Promise<unknown>[] = [];
   try {
     context ??= new AudioContext({ latencyHint: "interactive" });
     attempts.push(context.resume());
+    loadVoice();
   } catch {
-    /* HTML audio can still work */
+    /* HTML Audio fallback */
   }
-  try {
-    const player = media();
-    player.muted = true;
-    const started = player.play();
-    attempts.push(
-      started
-        .then(() => {
-          player.pause();
-          player.currentTime = 0;
-          player.muted = false;
-          mediaReady = true;
-        })
-        .catch(() => {
-          player.muted = false;
-        }),
-    );
-  } catch {
-    /* Web Audio can still work */
+  if (!mediaReady && !priming) {
+    const tones = (Object.keys(paths) as Tone[]).map(player);
+    const prime = async (audio: HTMLAudioElement) => {
+      audio.muted = true;
+      try {
+        await audio.play();
+        audio.pause();
+        audio.currentTime = 0;
+      } finally {
+        audio.muted = false;
+      }
+    };
+    // 同じユーザー操作内で全てのplay()を呼ぶ。
+    const toneAttempts = tones.map(prime);
+    void prime(voicePlayer()).catch(() => {});
+    void prime(voicePlayer(preview)).catch(() => {});
+    priming = Promise.all(toneAttempts)
+      .then(() => {
+        mediaReady = true;
+      })
+      .catch(() => {})
+      .finally(() => {
+        priming = null;
+      });
   }
+  if (priming) attempts.push(priming);
   await Promise.race([
     Promise.allSettled(attempts),
-    new Promise((resolve) => setTimeout(resolve, 2000)),
+    new Promise((r) => setTimeout(r, 2000)),
   ]);
-  if (!isAudioReady())
+  if (!ready())
     throw new Error(
       "このブラウザが音声再生を許可していません。Chromeで開いて再試聴してください",
     );
 }
-export function cancelSound(includePreview = false) {
-  for (const oscillator of sounds) {
+function stop(pool: Pool) {
+  for (const node of pool.nodes) {
     try {
-      oscillator.stop();
+      node.stop();
     } catch {
       /* ended */
     }
   }
-  sounds = [];
-  if (scheduledTimer) clearTimeout(scheduledTimer);
-  if (voiceTimer) clearTimeout(voiceTimer);
-  scheduledMedia?.pause();
-  if ("speechSynthesis" in window) speechSynthesis.cancel();
-  if (includePreview) {
-    previewMedia?.pause();
-    for (const oscillator of previewSounds) {
-      try {
-        oscillator.stop();
-      } catch {
-        /* ended */
-      }
-    }
-    previewSounds = [];
-    if (previewTimer) clearTimeout(previewTimer);
-    previewState?.(false);
-  }
+  pool.nodes.clear();
+  for (const id of pool.timers) clearTimeout(id);
+  pool.timers.clear();
 }
-export function localVoice() {
-  return "speechSynthesis" in window
-    ? speechSynthesis
-        .getVoices()
-        .find((v) => v.lang.startsWith("ja") && v.localService)
-    : undefined;
+export function cancelSound(includePreview = false) {
+  stop(scheduled);
+  for (const audio of toneMedia.values()) audio.pause();
+  voiceMedia?.pause();
+  if (voiceMedia)
+    voiceGeneration.set(voiceMedia, (voiceGeneration.get(voiceMedia) ?? 0) + 1);
+  if (includePreview) stopPreview();
 }
-function synth(p: Preferences, delayMs: number, preview = false) {
+export function stopPreview() {
+  previewMedia?.pause();
+  previewVoiceMedia?.pause();
+  if (previewVoiceMedia)
+    voiceGeneration.set(
+      previewVoiceMedia,
+      (voiceGeneration.get(previewVoiceMedia) ?? 0) + 1,
+    );
+  stop(preview);
+  previewActive = false;
+  previewState?.(false);
+}
+function synthTone(p: Preferences, kind: Tone, delayMs: number, pool: Pool) {
   if (context?.state !== "running") return false;
-  const at = context.currentTime + Math.max(0, delayMs) / 1000;
-  for (const [frequency, offset, length] of [
-    [784, 0, 0.48],
-    [1174.66, 0.28, 0.9],
-  ]) {
-    const oscillator = context.createOscillator(),
-      gain = context.createGain();
-    oscillator.type = "triangle";
-    oscillator.frequency.value = frequency;
-    gain.gain.setValueAtTime(0, at + offset);
-    gain.gain.linearRampToValueAtTime(p.volume * 0.42, at + offset + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + offset + length);
-    oscillator.connect(gain).connect(context.destination);
-    oscillator.start(at + offset);
-    oscillator.stop(at + offset + length + 0.03);
-    if (preview) previewSounds.push(oscillator);
-    else sounds.push(oscillator);
-    oscillator.onended = () => {
-      sounds = sounds.filter((x) => x !== oscillator);
-      previewSounds = previewSounds.filter((x) => x !== oscillator);
-      oscillator.disconnect();
-      gain.disconnect();
-    };
+  const spec = TONES[kind],
+    at = context.currentTime + Math.max(0, delayMs) / 1000;
+  const oscillator = context.createOscillator(),
+    gain = context.createGain();
+  oscillator.type = "sine";
+  oscillator.frequency.value = spec.frequency;
+  gain.gain.setValueAtTime(0, at);
+  gain.gain.linearRampToValueAtTime(p.volume * spec.level, at + 0.003);
+  if (kind === "bell")
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + spec.length);
+  else {
+    gain.gain.setValueAtTime(p.volume * spec.level, at + spec.length - 0.008);
+    gain.gain.linearRampToValueAtTime(0, at + spec.length);
   }
+  oscillator.connect(gain).connect(context.destination);
+  pool.nodes.add(oscillator);
+  oscillator.start(at);
+  oscillator.stop(at + spec.length + 0.01);
+  oscillator.onended = () => {
+    pool.nodes.delete(oscillator);
+    oscillator.disconnect();
+    gain.disconnect();
+  };
   return true;
 }
-/** 試聴は時報のON/OFF・予約取消と独立。play()はクリックの呼出し中に実行する。 */
+function speak(
+  p: Preferences,
+  wall: number,
+  delayMs: number,
+  pool: Pool,
+  onFailure?: Failure,
+) {
+  const parts = announcement(wall).keys.map((key) => clips[key]);
+  let offset = Math.max(0, delayMs);
+  for (const part of parts) {
+    if (context?.state === "running" && voiceBuffer) {
+      const source = context.createBufferSource(),
+        gain = context.createGain();
+      source.buffer = voiceBuffer;
+      gain.gain.value = p.volume;
+      source.connect(gain).connect(context.destination);
+      pool.nodes.add(source);
+      source.start(
+        context.currentTime + offset / 1000,
+        part.start,
+        part.length,
+      );
+      source.onended = () => {
+        pool.nodes.delete(source);
+        source.disconnect();
+        gain.disconnect();
+      };
+    } else {
+      timer(
+        pool,
+        () => {
+          const audio = voicePlayer(pool);
+          audio.pause();
+          audio.currentTime = part.start;
+          audio.volume = p.volume;
+          const generation = (voiceGeneration.get(audio) ?? 0) + 1;
+          voiceGeneration.set(audio, generation);
+          void audio
+            .play()
+            .then(() => {
+              if (voiceGeneration.get(audio) !== generation) return;
+              timer(
+                pool,
+                () => {
+                  if (voiceGeneration.get(audio) === generation) audio.pause();
+                },
+                part.length * 1000,
+              );
+            })
+            .catch(() =>
+              onFailure?.(
+                "時刻の読み上げを再生できません。試合の合間に再試聴してください",
+              ),
+            );
+        },
+        offset,
+      );
+    }
+    offset += part.length * 1000 + 80;
+  }
+}
+export function playSignal(
+  p: Preferences,
+  kind: Tone,
+  delayMs: number,
+  announceAt?: number,
+  onFailure?: Failure,
+) {
+  if (!p.chime || p.volume <= 0 || !isAudioReady()) return false;
+  const played = synthTone(p, kind, delayMs, scheduled);
+  if (!played && mediaReady)
+    timer(
+      scheduled,
+      () => {
+        const audio = player(kind);
+        audio.currentTime = 0;
+        audio.volume = p.volume;
+        void audio.play().catch(() => {
+          mediaReady = false;
+          onFailure?.(
+            "時報の再生が拒否されました。次のターンの前に再試聴してください",
+          );
+        });
+      },
+      delayMs,
+    );
+  if (p.voice && announceAt !== undefined)
+    speak(p, announceAt, delayMs, scheduled, onFailure);
+  return played || mediaReady;
+}
+/** 時報OFFでも再生できる独立した11.5秒サンプル。午前8時8分を予告する。 */
 export async function previewChime(
   p: Preferences,
   onPlaying: (playing: boolean) => void,
 ) {
   if (p.volume <= 0)
     throw new Error("音量が0%です。音量を上げてから試聴してください");
+  stopPreview();
   previewState = onPlaying;
+  cancelSound();
+  previewActive = true;
   void unlockAudio().catch(() => {});
   try {
-    previewMedia ??= new Audio("/chime.wav");
+    const src = p.voice ? "/signal-preview-voice.mp3" : "/signal-preview.wav";
+    previewMedia ??= new Audio(src);
+    if (previewMedia.getAttribute("src") !== src) previewMedia.src = src;
     previewMedia.preload = "auto";
     previewMedia.volume = p.volume;
-    previewMedia.pause();
     previewMedia.currentTime = 0;
-    previewMedia.onplaying = () => onPlaying(true);
-    previewMedia.onended = previewMedia.onpause = () => onPlaying(false);
+    previewMedia.onplaying = () => {
+      previewActive = true;
+      onPlaying(true);
+    };
+    previewMedia.onended = previewMedia.onpause = () => {
+      previewActive = false;
+      onPlaying(false);
+    };
+    // awaitの前にplay()を実行してユーザー操作を引き継ぐ。
     await previewMedia.play();
     return "media" as const;
   } catch {
-    if (synth(p, 0, true)) {
+    if (synthTone(p, "tick", 0, preview)) {
+      for (let s = 1; s <= 10; s++)
+        synthTone(
+          p,
+          s === 10 ? "bell" : s >= 7 ? "pip" : "tick",
+          s * 1000,
+          preview,
+        );
+      if (p.voice) speak(p, new Date(2026, 0, 1, 8, 8).getTime(), 0, preview);
       onPlaying(true);
-      previewTimer = setTimeout(() => onPlaying(false), 1400);
+      timer(
+        preview,
+        () => {
+          previewActive = false;
+          onPlaying(false);
+        },
+        11500,
+      );
       return "synth" as const;
     }
+    previewActive = false;
     onPlaying(false);
     throw new Error(
       "ブラウザに音声再生を拒否されました。Chromeで開き直して試聴してください",
     );
   }
-}
-export function chime(
-  p: Preferences,
-  delayMs = 0,
-  wall = Date.now(),
-  onFailure?: () => void,
-) {
-  if (!p.chime || p.volume <= 0 || !isAudioReady()) return false;
-  const played = synth(p, delayMs);
-  if (!played && mediaReady) {
-    scheduledTimer = setTimeout(
-      () => {
-        const player = media();
-        player.muted = false;
-        player.volume = p.volume;
-        player.currentTime = 0;
-        void player.play().catch(() => {
-          mediaReady = false;
-          onFailure?.();
-        });
-      },
-      Math.max(0, delayMs),
-    );
-  }
-  if (p.voice && localVoice())
-    voiceTimer = setTimeout(
-      () => {
-        const time = new Date(wall),
-          hour = time.getHours(),
-          utterance = new SpeechSynthesisUtterance(
-            `${hour < 12 ? "午前" : "午後"}${hour % 12 || 12}時${time.getMinutes()}分ちょうどをお知らせします`,
-          );
-        utterance.lang = "ja-JP";
-        utterance.voice = localVoice()!;
-        utterance.volume = p.volume;
-        speechSynthesis.speak(utterance);
-      },
-      Math.max(0, delayMs) + 700,
-    );
-  return played || mediaReady;
 }
