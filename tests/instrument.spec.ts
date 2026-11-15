@@ -216,6 +216,8 @@ test("音声がブロックされても計時・判定は進む", async ({ page 
         throw new Error("blocked in test");
       }
     } as unknown as typeof AudioContext;
+    HTMLMediaElement.prototype.play = () =>
+      Promise.reject(new Error("blocked in test"));
   });
   await fakeClock(page);
   await prepare(page);
@@ -224,7 +226,7 @@ test("音声がブロックされても計時・判定は進む", async ({ page 
   await expect(page.locator(".last-result")).toContainText("60.00");
   await page.getByRole("button", { name: "設定", exact: true }).click();
   await expect(page.locator(".footnote")).toContainText(
-    "音声を有効にできませんでした。計測は音なしでも続行できます",
+    "このブラウザが音声再生を許可していません",
   );
 });
 
@@ -325,4 +327,127 @@ test("別タブの同時開始は上書きを拒否し、先に確定した記�
   await second.getByRole("button", { name: /試合の続き/ }).click();
   await expect(second.locator(".last-result")).toContainText("60.00");
   await expect(second.locator(".score-total").nth(1)).toContainText("60.00");
+});
+
+test("時報OFFでも試聴は最後まで再生し、WebAudio不可でも毎分00秒に音源を再生する", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.AudioContext = class {
+      constructor() {
+        throw new Error("WebAudio unavailable");
+      }
+    } as unknown as typeof AudioContext;
+    const original = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      if (!this.muted) {
+        const target = window as typeof window & {
+          audiblePlays?: { at: number; volume: number; src: string }[];
+          sampleEnded?: boolean;
+        };
+        target.audiblePlays ??= [];
+        target.audiblePlays.push({
+          at: Date.now(),
+          volume: this.volume,
+          src: this.src,
+        });
+        this.addEventListener(
+          "ended",
+          () => {
+            target.sampleEnded = true;
+          },
+          { once: true },
+        );
+      }
+      return original.call(this);
+    };
+  });
+  await fakeClock(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "設定", exact: true }).click();
+  await page.getByLabel("毎分00秒のチャイム").uncheck();
+  await page.getByRole("button", { name: "時報を試聴", exact: true }).click();
+  await expect(page.locator(".footnote")).toContainText("再生中");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as typeof window & { sampleEnded?: boolean }).sampleEnded,
+      ),
+    )
+    .toBe(true);
+  await page.getByLabel("毎分00秒のチャイム").check();
+  await page.clock.fastForward(14000);
+  await page.clock.fastForward(1000);
+  const plays = await page.evaluate(
+    () =>
+      (
+        window as typeof window & {
+          audiblePlays: { at: number; volume: number; src: string }[];
+        }
+      ).audiblePlays,
+  );
+  expect(plays.length).toBeGreaterThanOrEqual(2);
+  expect(plays.at(-1)!.at % 60000).toBe(0);
+  expect(plays.at(-1)!.volume).toBeGreaterThan(0.4);
+  expect(plays.at(-1)!.src).toContain("/chime.wav");
+});
+
+test("主要な文字・タイマー・操作ボタンのコントラストと結果の位置", async ({
+  page,
+}) => {
+  await prepare(page);
+  const contrast = await page.evaluate(() => {
+    function rgb(color: string) {
+      return color
+        .match(/[\d.]+/g)!
+        .slice(0, 3)
+        .map(Number)
+        .map((x) => {
+          const c = x / 255;
+          return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+    }
+    function ratio(a: string, b: string) {
+      const lum = (s: string) => {
+        const c = rgb(s);
+        return c[0] * 0.2126 + c[1] * 0.7152 + c[2] * 0.0722;
+      };
+      const x = lum(a),
+        y = lum(b);
+      return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+    }
+    const body = getComputedStyle(
+      document.querySelector(".instrument")!,
+    ).backgroundColor;
+    return [
+      ".match-heading h1",
+      ".footnote",
+      ".score-total strong",
+      ".metrics dt",
+      ".primary",
+    ].map((selector) => {
+      const e = document.querySelector(selector)!,
+        s = getComputedStyle(e);
+      return {
+        selector,
+        ratio: ratio(
+          s.color,
+          selector === ".primary" ? s.backgroundColor : body,
+        ),
+      };
+    });
+  });
+  for (const c of contrast)
+    expect(c.ratio, c.selector).toBeGreaterThanOrEqual(4.5);
+  await start(page);
+  await page.getByRole("button", { name: /CHECK/ }).click();
+  const result = await page.locator(".last-result").boundingBox(),
+    next = await page
+      .getByRole("button", { name: /次のターンを開始/ })
+      .boundingBox();
+  expect(result!.y).toBeLessThan(next!.y);
+  await page.screenshot({
+    path: "test-results/readable-result.png",
+    fullPage: true,
+  });
 });

@@ -1,4 +1,4 @@
-const CACHE='handkerchief-d21c7e641d9cd730';const URLS=["/assets/index-Bumuzmkj.js","/assets/index-D3HSx3rV.css","/favicon.svg","/icon-192.png","/icon-512.png","/","/licenses.txt","/manifest.webmanifest"];
+const CACHE='handkerchief-3b20b722fe0b4d9b';const URLS=["/assets/index-CWjdPo66.js","/assets/index-D-O8FZy1.css","/chime.wav","/favicon.svg","/icon-192.png","/icon-512.png","/","/licenses.txt","/manifest.webmanifest"];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(URLS.map(u=>new Request(u,{cache:'reload'}))))));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('handkerchief-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||new URL(e.request.url).origin!==self.location.origin)return;e.respondWith(caches.open(CACHE).then(async c=>{if(e.request.mode==='navigate')return (await c.match('/',{ignoreVary:true}))||fetch(e.request);return (await c.match(e.request,{ignoreVary:true}))||fetch(e.request);}));});

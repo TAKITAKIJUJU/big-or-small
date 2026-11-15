@@ -20,6 +20,7 @@ import {
   DEFAULTS,
   MinutePlanner,
   preferences,
+  previewChime,
   unlockAudio,
   type Preferences,
 } from "../audio/chime";
@@ -34,6 +35,8 @@ export function useInstrument() {
     [saving, setSaving] = useState(false),
     [elapsed, setElapsed] = useState(0),
     [wakeNotice, setWakeNotice] = useState(""),
+    [previewPlaying, setPreviewPlaying] = useState(false),
+    [audioReady, setAudioReady] = useState(false),
     [audioNotice, setAudioNotice] =
       useState("時報は試聴で動作を確認してください"),
     [, force] = useState(0);
@@ -137,7 +140,7 @@ export function useInstrument() {
     const hidden = () => {
       if (document.hidden) {
         clock.interrupt("画面が非表示になったため無効・やり直し");
-        cancelSound();
+        cancelSound(true);
       }
     };
     const hide = () => clock.interrupt("ページを離れたため無効・やり直し");
@@ -167,7 +170,13 @@ export function useInstrument() {
           settings.chime && isAudioReady() && !document.hidden,
         );
       if (plan.cancel) cancelSound();
-      if (plan.at !== null) chime(settings, plan.at - now, plan.at);
+      if (plan.at !== null)
+        chime(settings, plan.at - now, plan.at, () => {
+          setAudioReady(false);
+          setAudioNotice(
+            "時報の再生が拒否されました。次のターンの前に再試聴してください",
+          );
+        });
     };
     const timer = setInterval(step, 200);
     step();
@@ -211,12 +220,22 @@ export function useInstrument() {
   }, [active]);
   async function audio(test = false) {
     try {
-      await unlockAudio();
-      if (test) chime({ ...settings, chime: true });
-      setAudioNotice("時報を有効化しました。端末の音量も確認してください");
-    } catch {
+      if (test) {
+        await previewChime(settings, setPreviewPlaying);
+        setAudioNotice(
+          "試聴を再生しました。聞こえない場合は端末のメディア音量を確認してください",
+        );
+      } else {
+        await unlockAudio();
+        setAudioNotice("時報の再生を準備しました");
+      }
+      setAudioReady(true);
+    } catch (error) {
+      setAudioReady(false);
       setAudioNotice(
-        "音声を有効にできませんでした。計測は音なしでも続行できます",
+        error instanceof Error
+          ? error.message
+          : "音声を有効にできません。計測は音なしでも続行できます",
       );
     }
   }
@@ -277,6 +296,8 @@ export function useInstrument() {
     elapsed,
     wakeNotice,
     audioNotice,
+    audioReady,
+    previewPlaying,
     audio,
     running: active,
     dropped: clock.dropped,
