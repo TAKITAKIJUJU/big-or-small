@@ -456,7 +456,7 @@ export async function previewChime(
           preview,
         );
       if (p.voice)
-        speak(p, new Date(2026, 0, 1, 8, 8).getTime(), 3000, preview);
+        speak(p, 60000, 3000, preview);
       onPlaying(true);
       timer(
         preview,

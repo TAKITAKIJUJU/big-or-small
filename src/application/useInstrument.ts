@@ -42,6 +42,7 @@ export function useInstrument(signalActive: boolean) {
     [audioNotice, setAudioNotice] =
       useState("時報は試聴で動作を確認してください"),
     [, force] = useState(0);
+  const signalOrigin = useRef<number | null>(null);
   const currentRef = useRef<Match | null>(null),
     faultRef = useRef(false),
     revisions = useRef(new Map<string, number>()),
@@ -170,14 +171,22 @@ export function useInstrument(signalActive: boolean) {
     }
     const planner = new TimeSignalPlanner();
     const step = () => {
-      const now = Date.now(),
+      const mono = performance.now(),
+        now = signalOrigin.current === null ? 0 : mono - signalOrigin.current,
         plan = planner.step(
           now,
-          performance.now(),
-          settings.chime && isAudioReady() && !document.hidden,
+          mono,
+          signalOrigin.current !== null &&
+            (clock.running ||
+              (clock.timedOut && now >= 60000 && now < 61500)) &&
+            settings.chime &&
+            isAudioReady() &&
+            !document.hidden,
         );
       if (plan.cancel) cancelSound();
-      for (const cue of plan.cues)
+      for (const cue of plan.cues.filter(
+        (cue) => cue.at > 0 && cue.at <= 60000,
+      ))
         playSignal(
           settings,
           cue.tone,
@@ -195,7 +204,7 @@ export function useInstrument(signalActive: boolean) {
       clearInterval(timer);
       cancelSound();
     };
-  }, [settings, audioRevision, signalActive]);
+  }, [settings, audioRevision, signalActive, clock]);
   const active = !!current?.active;
   useEffect(() => {
     if (!active) return;
@@ -286,6 +295,9 @@ export function useInstrument(signalActive: boolean) {
   function start() {
     if (!faultRef.current && !saving) {
       clock.start();
+      signalOrigin.current = clock.startedMonotonic;
+      cancelSound(true);
+      setAudioRevision((revision) => revision + 1);
       stopPreview();
       void audio();
     }

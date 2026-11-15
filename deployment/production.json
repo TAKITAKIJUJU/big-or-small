@@ -1,27 +1,27 @@
 {
   "product": "USOTUKI ハンカチ落とし計時器",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "url": "https://usotuki.app/",
   "worker": "usotuki",
-  "sourceCommit": "007931c121276af01a5542131a544724be6d4986",
-  "buildCommit": "25dfef199ca41f618a2f650a1bb9f4b8f03684b1",
-  "deploymentId": "3c323445b33b431c87e3f4c2568e96bf",
-  "previousDeploymentId": "fe620b5abf974f72a40d154848382c12",
+  "sourceCommit": "aef2b7eb25984b60d154a785b1db090f55dab65f",
+  "buildCommit": "399d0bbe26230b6a5efdf8950be3bc72a8692214",
+  "deploymentId": "4b34e5e3ca5f4d108287aa3a4372236d",
+  "previousDeploymentId": "3c323445b33b431c87e3f4c2568e96bf",
   "previousProductDeploymentId": "263e9a79915e452592e119ad79af400f",
-  "updatedAt": "2026-11-15T17:11:24.512875+00:00",
+  "updatedAt": "2026-11-15T17:40:30.739514+00:00",
   "compatibilityDate": "2026-11-14",
   "assetsOnly": true,
   "runWorkerFirst": false,
   "workerCacheEnabled": false,
   "bindings": [],
   "manifest": {
+    "/assets/index-B_8KoreB.js": {
+      "hash": "5f9113835da22d20ee6dc20d1e03faba",
+      "size": 277307
+    },
     "/assets/index-D-O8FZy1.css": {
       "hash": "c90d9da3b96b55656723d0d4179e8f7e",
       "size": 15991
-    },
-    "/assets/index-Dr5SIN_d.js": {
-      "hash": "d85ff7e3d869b7fb209c81492c52feb5",
-      "size": 277071
     },
     "/audio-attribution.txt": {
       "hash": "79c3a74c5c88b240e592de8665b3833a",
@@ -44,7 +44,7 @@
       "size": 3843
     },
     "/index.html": {
-      "hash": "0a3471324fd1e475bf94da8c0b3dfff3",
+      "hash": "468aec4e1e14dd74b18614f701478000",
       "size": 920
     },
     "/licenses.txt": {
@@ -68,7 +68,7 @@
       "size": 507194
     },
     "/sw.js": {
-      "hash": "1c40380a5afddb40b5e1d547323a9996",
+      "hash": "4b507b130abe5c30a6fb428bcd60d4bf",
       "size": 1965
     },
     "/tick.wav": {
@@ -90,17 +90,19 @@
   },
   "archiveBranch": "codex/archive-air-poker-wip-20261115",
   "verification": {
-    "unitTests": 44,
-    "productionBrowserTests": 15,
-    "productionBrowserSeconds": 40.8,
+    "unitTests": 45,
+    "productionBrowserTests": 17,
+    "productionBrowserSeconds": 46.9,
     "productionFilesMatch": 16,
     "consecutiveAudioTurns": 3,
     "closedAudioContextRecoveryTested": true,
     "androidDeviceTested": false,
     "physicalSpeakerTested": false,
-    "reportedDeviceStopCauseIdentified": false
+    "reportedDeviceStopCauseIdentified": false,
+    "homeSilenceTested": true,
+    "previewCancellationTested": true
   },
-  "previousVerifiedDeploymentId": "fe620b5abf974f72a40d154848382c12",
+  "previousVerifiedDeploymentId": "3c323445b33b431c87e3f4c2568e96bf",
   "audio": {
     "profile": "time-signal",
     "secondTicks": true,
@@ -122,6 +124,11 @@
     "htmlVoiceSource": "local Blob, metadata ready before seek",
     "bellEverySeconds": 10,
     "rearmEachTurn": true,
-    "recreateClosedAudioContext": true
+    "recreateClosedAudioContext": true,
+    "automaticSignalPages": [
+      "match"
+    ],
+    "stopOnNavigation": true,
+    "cancelledPreviewCannotRestart": true
   }
 }

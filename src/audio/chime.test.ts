@@ -36,20 +36,15 @@ it("全秒を刻み、10秒ごとを7秒前から予告する", () => {
     [53000, 60000],
   ]);
 });
-it("23:59から翌日00:00の予告は午前12時0分になる", () => {
-  const start = new Date(2026, 10, 15, 23, 59, 53).getTime();
-  const cue = new TimeSignalPlanner().step(start, 0, true).cues[0];
-  expect(announcement(cue.announceAt!).text).toBe(
-    "午前12時0分ちょうどをお知らせします",
-  );
-  expect(announcement(cue.announceAt!).keys).toEqual([
-    "hour-0",
-    "minute-0",
-    "second-0",
-  ]);
-  expect(announcement(new Date(2026, 10, 15, 8, 12, 20).getTime()).text).toBe(
-    "午前8時12分20秒をお知らせします",
-  );
+it("経過時間だけを読み、実際の時・分を使わない", () => {
+  expect(announcement(10000)).toEqual({
+    text: "10秒をお知らせします",
+    keys: ["second-10"],
+  });
+  expect(announcement(60000)).toEqual({
+    text: "1分をお知らせします",
+    keys: ["second-60"],
+  });
 });
 it("時計修正は予定を破棄し新境界へ同期", () => {
   const p = new TimeSignalPlanner();

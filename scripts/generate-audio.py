@@ -48,8 +48,8 @@ offset = 0
 texts = {f"hour-{h}": f"{'午前' if h < 12 else '午後'}{h % 12 or 12}時"
          for h in range(24)}
 texts.update({f"minute-{m}": f"{m}分" for m in range(60)})
-texts.update({f"second-{s}": f"{str(s) + '秒' if s else 'ちょうど'}をお知らせします"
-              for s in range(0, 60, 10)})
+texts.update({f"second-{s}": f"{('1分' if s == 60 else str(s) + '秒') if s else 'ちょうど'}をお知らせします"
+              for s in range(0, 70, 10)})
 for key, text in texts.items():
     clip = speech(text)
     clips[key] = clip
@@ -78,8 +78,7 @@ for second in range(11):
     start = second * RATE
     preview[start:start + len(sound)] += sound
 wav(ROOT / "public/signal-preview.wav", preview)
-sample_voice = np.concatenate([clips["hour-8"], np.zeros(int(RATE * 0.08)),
-                               clips["minute-8"], np.zeros(int(RATE * 0.08)), clips["second-0"]])
+sample_voice = clips["second-60"]
 assert len(sample_voice) < RATE * 6, "Announcement must finish before the three pips"
 preview[RATE * 3:RATE * 3 + len(sample_voice)] += sample_voice
 mp3(ROOT / "public/signal-preview-voice.mp3", preview)

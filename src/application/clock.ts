@@ -16,6 +16,7 @@ export const browserClock: ClockSource = {
   id: () => crypto.randomUUID(),
 };
 export class TurnClock {
+  timedOut = false;
   private live: { start: number; drop: number | null } | null = null;
   constructor(
     private read: () => Match | null,
@@ -27,6 +28,9 @@ export class TurnClock {
     return this.live
       ? Math.max(0, Math.floor(this.clock.monotonic() - this.live.start))
       : 0;
+  }
+  get startedMonotonic() {
+    return this.live?.start ?? null;
   }
   get running() {
     return this.live !== null;
@@ -40,6 +44,7 @@ export class TurnClock {
     const start = this.clock.monotonic(),
       startedAt = this.clock.wall();
     const next = startTurn(match, { id: this.clock.id(), startedAt });
+    this.timedOut = false;
     this.live = { start, drop: null };
     this.commit(next);
     this.notify();
@@ -64,6 +69,7 @@ export class TurnClock {
     const match = this.read(),
       live = this.live;
     if (!match || !live) return;
+    this.timedOut = check === null;
     this.live = null;
     this.commit(
       finishTurn(
@@ -78,6 +84,7 @@ export class TurnClock {
     const match = this.read();
     if (!match?.active) return;
     const elapsed = this.elapsed();
+    this.timedOut = false;
     this.live = null;
     this.commit(
       interruptTurn(match, this.clock.id(), this.clock.wall(), elapsed, reason),
