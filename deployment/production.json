@@ -2,30 +2,30 @@
   "url": "https://usotuki.app/",
   "worker": "usotuki",
   "publishedAt": "2026-11-14",
-  "sourceCommit": "34b3654f71d31ac27910c5aea9094b516125bb01",
-  "buildCommit": "82c2152d317b4324d19506f60a46b3d092a2acf3",
-  "deploymentId": "596320817446476ca855a9bd5f998379",
+  "sourceCommit": "0d5a3461157afd42165365d276f519d45e6115a4",
+  "buildCommit": "a4e2e50ebceb7c30170a9bc713ccee5a41090a30",
+  "deploymentId": "263e9a79915e452592e119ad79af400f",
   "compatibilityDate": "2026-11-14",
   "assetsOnly": true,
   "runWorkerFirst": false,
   "workerCacheEnabled": false,
   "bindings": [],
   "manifest": {
-    "/assets/TableScene-D6P2mqy0.js": {
-      "hash": "3c476460024ed2b8799f5d32014eeaed",
-      "size": 16793
+    "/assets/TableScene-C1Q987Lz.js": {
+      "hash": "01c955d757d11b3d6b3a6b627907aa8d",
+      "size": 16890
     },
-    "/assets/bot.worker-nOxVJ7Yr.js": {
-      "hash": "dc9794b8e9b7ce4445257cdc0aa06328",
-      "size": 14222
+    "/assets/bot.worker-aORnrf-v.js": {
+      "hash": "d41b150763dd05d3f6cdcdc6c3d884a0",
+      "size": 14328
     },
     "/assets/index-BtM8jEd_.css": {
       "hash": "b19452884e67415c509bfe313c0cf67c",
       "size": 15633
     },
-    "/assets/index-JvT8tILJ.js": {
-      "hash": "a114c85a1cd8756570ace494cd0e0bc3",
-      "size": 265903
+    "/assets/index-Djvu33XH.js": {
+      "hash": "7490636a1b5af468c77bc8f2864e2138",
+      "size": 267755
     },
     "/assets/three-KJcA9O8H.js": {
       "hash": "ce0f0a62871c58f2d112122b61460a4c",
@@ -36,7 +36,7 @@
       "size": 196
     },
     "/index.html": {
-      "hash": "4a0e6ed48b39fd96fa54bc0f039f6829",
+      "hash": "b0e6268896b4bb886105e9b7ea98d993",
       "size": 763
     },
     "/licenses.txt": {
@@ -44,14 +44,18 @@
       "size": 20021
     }
   },
-  "previousDeploymentId": "240e3f523e304645b2b640c7739d5eb9",
-  "updatedAt": "2026-11-14T17:09:24.653751+00:00",
-  "ruleset": "pressure",
+  "previousDeploymentId": "596320817446476ca855a9bd5f998379",
+  "updatedAt": "2026-11-14T17:34:48.837149+00:00",
+  "ruleset": "open",
   "legacySavedRuleset": "classic",
-  "botStrategy": "public-range-cfr-v3",
+  "botStrategy": "public-range-cfr-open-v1",
   "search": {
     "method": "CFR+型",
     "iterations": 128,
     "runsInBrowserWorker": true
-  }
+  },
+  "legacyRulesets": [
+    "classic",
+    "pressure"
+  ]
 }
