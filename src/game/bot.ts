@@ -4,7 +4,7 @@ import {
   type Difficulty,
   type PlayerView,
 } from "./engine";
-import { getRoundStakes } from "./stakes";
+import { getRoundStakes, isOpenRuleset, matchRules } from "./stakes";
 import { solveBetting } from "./betting-search";
 import {
   analyseOpponent,
@@ -104,12 +104,12 @@ export function cardPolicy(
   const model = analyseOpponent(view),
     own = view.chips[view.viewer] + view.ante,
     enemy = view.chips[other(view.viewer)] + view.ante;
-  const slots = Array.from({ length: 14 - view.round }, (_, offset) => {
+  const slots = Array.from({ length: matchRules(view.ruleset).roundLimit + 1 - view.round }, (_, offset) => {
     const r = view.round + offset,
       stakes = getRoundStakes(r, view.ruleset, view.allIn);
     return (
       (stakes.scheduledAnte +
-        Math.min(stakes.betLimit ?? 300, own, enemy) * 0.65) *
+        Math.min(stakes.betLimit ?? matchRules(view.ruleset).initialStack, own, enemy) * 0.65) *
       0.96 ** offset
     );
   });
@@ -125,10 +125,12 @@ export function cardPolicy(
     const remaining = remainingPower
         .filter((x) => x.card !== card)
         .map((x) => x.value)
+        .sort((a, b) => b - a)
+        .slice(0, slots.length - 1)
         .sort((a, b) => a - b),
       future = [...slots.slice(1)].sort((a, b) => a - b);
     const distribution = view.mode ? equity(card, view.mode, model.range) : null;
-    const immediate = view.ruleset === "open" && distribution
+    const immediate = isOpenRuleset(view.ruleset) && distribution
       ? (distribution.win - distribution.lose) * (view.pot + Math.min(own, enemy) * 0.35)
       : slots[0] * value;
     const score =
@@ -164,7 +166,7 @@ export function decideCard(
     : Math.abs(chosen.card - 7) >= Math.max(...poles) && view.round > 5
       ? "use-now"
       : "mixed-card";
-  if (view.ruleset === "open" && view.mode) {
+  if (isOpenRuleset(view.ruleset) && view.mode) {
     const strength = equity(chosen.card, view.mode, analyseOpponent(view).range).equity;
     reason = strength >= 0.65 ? "use-now" : reserved ? "reserve" : "mixed-card";
   }
@@ -269,7 +271,7 @@ export function actionPolicy(
     own = view.viewer,
     enemy = other(own);
   const cap = Math.min(
-      view.betLimit ?? 600,
+      view.betLimit ?? matchRules(view.ruleset).initialStack * 2,
       view.chips.human + view.contributions.human,
       view.chips.bot + view.contributions.bot,
     ),
@@ -277,12 +279,12 @@ export function actionPolicy(
   const behind =
     chips + view.contributions[own] <
     view.chips[enemy] + view.contributions[enemy];
-  const urgency = (view.round / 13) ** 3;
+  const urgency = (view.round / matchRules(view.ruleset).roundLimit) ** 3;
   const utility = (amount: number) =>
-    view.round === 13
-      ? 600 * (amount > 300 ? 1 : amount === 300 ? 0.5 : 0) + amount * 0.015
+    view.round === matchRules(view.ruleset).roundLimit
+      ? matchRules(view.ruleset).initialStack * 2 * (amount > matchRules(view.ruleset).initialStack ? 1 : amount === matchRules(view.ruleset).initialStack ? 0.5 : 0) + amount * 0.015
       : amount +
-        ((behind ? 0.25 : -0.18) * urgency * (amount - chips) ** 2) / 300;
+        ((behind ? 0.25 : -0.18) * urgency * (amount - chips) ** 2) / matchRules(view.ruleset).initialStack;
   const baseline = utility(chips);
   const outcome = (win: number, lose: number, tie: number, distribution = p) =>
     distribution.win * utility(win) +
@@ -381,7 +383,7 @@ export function decideAction(
   let reason: BotReason = "pot-control";
   if (chosen.action.type === "fold")
     reason =
-      view.round === 13 && view.chips[view.viewer] > 300
+      view.round === matchRules(view.ruleset).roundLimit && view.chips[view.viewer] > matchRules(view.ruleset).initialStack
         ? "protect-lead"
         : "fold";
   else if (

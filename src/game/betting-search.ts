@@ -4,6 +4,7 @@ import {
 } from "./engine";
 import { analyseOpponent, analysePlayer, equity, type CardBelief, type OpponentModel } from "./opponent-model";
 
+import { matchRules } from "./stakes";
 const N = 13;
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
 const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
@@ -112,10 +113,11 @@ export function solveBetting(view: PlayerView, iterations = 128): SearchResult {
     evidence = model.sampleSize + model.shownBets,
     modelWeight = 0.15 + 0.55 * evidence / (evidence + 5),
     stats = { iterations, nodes: 0, maxDepth: 0, modelWeight };
+  const { initialStack: initial, roundLimit } = matchRules(view.ruleset);
   const utility = (amount: number) => {
-    if (view.round === 13 || amount === 0 || amount === 600)
-      return Math.sign(amount - 300) * 300 + (amount - 300) * 0.015;
-    return amount - 300 + 80 * (view.round / 13) ** 3 * Math.tanh((amount - 300) / 100);
+    if (view.round === roundLimit || amount === 0 || amount === initial * 2)
+      return Math.sign(amount - initial) * initial + (amount - initial) * 0.015;
+    return amount - initial + initial * (80 / 300) * (view.round / roundLimit) ** 3 * Math.tanh((amount - initial) / (initial / 3));
   };
   function build(s: Position, depth: number, amounts: number[] | null = null): Node {
     stats.nodes++;

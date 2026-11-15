@@ -1,4 +1,4 @@
-import { getRoundStakes, type Ruleset } from "./stakes";
+import { getRoundStakes, isOpenRuleset, matchRules, type Ruleset } from "./stakes";
 /** 純粋な対局エンジン。UI、時刻、通信、Bot戦略には依存しない。 */
 export type Player = "human" | "bot";
 export type Mode = "BIG" | "SMALL";
@@ -83,6 +83,8 @@ export interface PlayerView {
   ante: number;
   scheduledAnte: number;
   betLimit: number | null;
+  initialStack: number;
+  roundLimit: number;
   nextAnte: number | null;
   nextScheduledAnte: number | null;
   canContinue: boolean;
@@ -113,8 +115,9 @@ export const matchWinner = (s: Pick<GameState, "chips">): Player | "tie" =>
       : "bot";
 export function createGame(
   allIn = false,
-  ruleset: Ruleset = "open",
+  ruleset: Ruleset = "air",
 ): GameState {
+  const initial = matchRules(ruleset).initialStack;
   const s: GameState = {
     version: 1,
     revision: 0,
@@ -125,7 +128,7 @@ export function createGame(
     betLimit: null,
     phase: "selecting",
     round: 1,
-    chips: { human: 300, bot: 300 },
+    chips: { human: initial, bot: initial },
     hands: { human: deck(), bot: deck() },
     selected: { human: null, bot: null },
     contributions: { human: 0, bot: 0 },
@@ -137,7 +140,7 @@ export function createGame(
     raises: 0,
     history: [],
     actions: [],
-    roundStart: { human: 300, bot: 300 },
+    roundStart: { human: initial, bot: initial },
     events: [],
   };
   ante(s);
@@ -145,11 +148,11 @@ export function createGame(
 }
 function ante(s: GameState) {
   if (
-    s.round > 13 ||
+    s.round > matchRules(s.ruleset).roundLimit ||
     Math.min(s.chips.human, s.chips.bot) < (s.ruleset === "classic" ? 2 : 1)
   ) {
     s.phase = "finished";
-    s.round = s.history.at(-1)?.round ?? Math.min(13, s.round);
+    s.round = s.history.at(-1)?.round ?? Math.min(matchRules(s.ruleset).roundLimit, s.round);
     s.events.push({ type: "finished", text: "対戦終了" });
     return;
   }
@@ -161,7 +164,7 @@ function ante(s: GameState) {
   s.chips.human -= s.ante;
   s.chips.bot -= s.ante;
   s.pot = s.carryPot + 2 * s.ante;
-  s.phase = s.ruleset === "open" ? "drawing" : "selecting";
+  s.phase = isOpenRuleset(s.ruleset) ? "drawing" : "selecting";
   s.selected = { human: null, bot: null };
   s.contributions = { human: 0, bot: 0 };
   s.mode = null;
@@ -184,7 +187,7 @@ export function effectiveCap(
   );
 }
 export type BettingPosition = Pick<GameState,
-  "phase" | "turn" | "chips" | "contributions" | "betLimit" | "raises" | "allIn" | "ruleset"
+  "pot" | "phase" | "turn" | "chips" | "contributions" | "betLimit" | "raises" | "allIn" | "ruleset"
 >;
 export function getLegalActions(s: BettingPosition, p: Player): BetAction[] {
   if (s.phase !== "betting" || s.turn !== p) return [];
@@ -205,11 +208,14 @@ export function getLegalActions(s: BettingPosition, p: Player): BetAction[] {
     (target > 0 && s.raises >= 2)
   )
     return legal;
-  const amounts: number[] = [];
-  for (let total = target + 2; total <= cap; total += 2) amounts.push(total);
+  const amounts: number[] = [], step = s.ruleset === "air" ? 1 : 2;
+  // 先にCALLする分を含めたポットの半分までを「上乗せ額」の上限とする。
+  const maximum = s.ruleset === "air" ? Math.min(cap, target + Math.floor((s.pot + due) / 2)) : cap;
+  for (let total = target + step; total <= maximum; total += step) amounts.push(total);
   // 有効スタックの端数のみ例外。相手に支払えない額は要求しない。
   if (
     (s.allIn || s.ruleset !== "classic") &&
+    cap <= maximum &&
     cap > target &&
     !amounts.includes(cap)
   )
@@ -257,7 +263,7 @@ function settle(s: GameState, folded?: Player) {
         : "bot";
   const pot = s.pot, carryIn = s.carryPot;
   s.carryPot = 0;
-  if (winner === "tie" && s.ruleset === "open") {
+  if (winner === "tie" && isOpenRuleset(s.ruleset)) {
     // 同数では追加ベットを全額返す。参加料と以前の持越分だけを残す。
     for (const p of ["human", "bot"] as const) {
       s.chips[p] += matched;
@@ -265,7 +271,7 @@ function settle(s: GameState, folded?: Player) {
       s.contributions[p] = 0;
     }
     const pool = pot - 2 * matched;
-    if (s.round < 13 && Math.min(s.chips.human, s.chips.bot) > 0)
+    if (s.round < matchRules(s.ruleset).roundLimit && Math.min(s.chips.human, s.chips.bot) > 0)
       s.carryPot = pool;
     else {
       s.chips.human += pool / 2;
@@ -328,8 +334,8 @@ export function transition(
         text: `${player === "human" ? "あなた" : "NPC"}が札を伏せた`,
       });
       if (s.selected.human !== null && s.selected.bot !== null) {
-        s.phase = s.ruleset === "open" ? "betting" : "drawing";
-        if (s.ruleset === "open" && (s.chips.human === 0 || s.chips.bot === 0)) settle(s);
+        s.phase = isOpenRuleset(s.ruleset) ? "betting" : "drawing";
+        if (isOpenRuleset(s.ruleset) && (s.chips.human === 0 || s.chips.bot === 0)) settle(s);
       }
       break;
     }
@@ -340,9 +346,9 @@ export function transition(
       if (!Number.isFinite(roll) || roll < 0 || roll >= 1)
         throw new Error("乱数が範囲外です");
       s.mode = roll < 0.5 ? "BIG" : "SMALL";
-      s.phase = s.ruleset === "open" ? "selecting" : "betting";
+      s.phase = isOpenRuleset(s.ruleset) ? "selecting" : "betting";
       s.events.push({ type: "drawn", text: s.mode });
-      if (s.ruleset !== "open" && (s.chips.human === 0 || s.chips.bot === 0)) settle(s);
+      if (!isOpenRuleset(s.ruleset) && (s.chips.human === 0 || s.chips.bot === 0)) settle(s);
       break;
     }
     case "act": {
@@ -388,8 +394,8 @@ export function transition(
   return s;
 }
 export function assertInvariants(s: GameState) {
-  if (s.chips.human + s.chips.bot + s.pot !== 600)
-    throw new Error("チップ総数が600ではありません");
+  if (s.chips.human + s.chips.bot + s.pot !== matchRules(s.ruleset).initialStack * 2)
+    throw new Error("資源の総数が一致しません");
   if (
     ![s.chips.human, s.chips.bot, s.pot].every(
       (n) => Number.isInteger(n) && n >= 0,
@@ -414,7 +420,7 @@ export function assertInvariants(s: GameState) {
     throw new Error("持越ポットが不正です");
   if ((s.phase === "resolved" && s.pot !== s.carryPot) || (s.phase === "finished" && s.pot !== 0))
     throw new Error("未精算のポットが残っています");
-  if (s.history.length > 13) throw new Error("ラウンド数が不正です");
+  if (s.history.length > matchRules(s.ruleset).roundLimit) throw new Error("ラウンド数が不正です");
 }
 export function getPlayerView(
   s: GameState,
@@ -444,12 +450,12 @@ export function getPlayerView(
       ? visible(latest).cards
       : { human: null, bot: null };
   const canContinue =
-    s.round < 13 &&
+    s.round < matchRules(s.ruleset).roundLimit &&
     Math.min(s.chips.human, s.chips.bot) >= (s.ruleset === "classic" ? 2 : 1);
   const nextScheduledAnte =
     s.phase === "finished" || (s.phase === "resolved" && !canContinue)
       ? null
-      : s.round < 13
+      : s.round < matchRules(s.ruleset).roundLimit
         ? getRoundStakes(s.round + 1, s.ruleset, s.allIn).scheduledAnte
         : null;
   return {
@@ -459,6 +465,7 @@ export function getPlayerView(
     round: s.round,
     allIn: s.allIn,
     ruleset: s.ruleset,
+    ...matchRules(s.ruleset),
     ante: s.ante,
     scheduledAnte: s.scheduledAnte,
     betLimit: s.betLimit,

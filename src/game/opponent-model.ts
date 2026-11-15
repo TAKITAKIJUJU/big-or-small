@@ -6,7 +6,7 @@ import {
   type PlayerView,
   type VisibleRound,
 } from "./engine";
-import { getRoundStakes } from "./stakes";
+import { getRoundStakes, isOpenRuleset, matchRules } from "./stakes";
 export interface CardBelief {
   card: number;
   probability: number;
@@ -54,7 +54,7 @@ function capFor(
   return Math.max(
     1,
     Math.min(
-      getRoundStakes(round.round, view.ruleset, view.allIn).betLimit ?? 600,
+      getRoundStakes(round.round, view.ruleset, view.allIn).betLimit ?? matchRules(view.ruleset).initialStack * 2,
       start.human - round.ante,
       start.bot - round.ante,
     ),
@@ -137,7 +137,7 @@ export function analysePlayer(view: PlayerView, opponent: Player): OpponentModel
     betN = 0,
     reserveEvidence = 0,
     reserveN = 0;
-  const starts = { human: 300, bot: 300 };
+  const starts = { human: matchRules(view.ruleset).initialStack, bot: matchRules(view.ruleset).initialStack };
   const caps: number[] = [];
   for (const round of view.history) {
     const cap = capFor(view, round, starts);
@@ -253,7 +253,7 @@ export function analysePlayer(view: PlayerView, opponent: Player): OpponentModel
       fixed = round.reason === "showdown" ? round.cards[opponent] : null,
       next = new Float64Array(8192);
     const prior = Array.from({ length: 13 }, (_, n) =>
-      cardPrior(n + 1, round.round, reserve, view.ruleset === "open" ? round.mode : null),
+      cardPrior(n + 1, round.round, reserve, isOpenRuleset(view.ruleset) ? round.mode : null),
     );
     const likelihood = Array.from({ length: 13 }, (_, n) =>
       actionLikelihood(
@@ -280,12 +280,12 @@ export function analysePlayer(view: PlayerView, opponent: Player): OpponentModel
   }
   const weights = new Float64Array(13),
     prior = Array.from({ length: 13 }, (_, n) =>
-      cardPrior(n + 1, view.round, reserve, view.ruleset === "open" ? view.mode : null),
+      cardPrior(n + 1, view.round, reserve, isOpenRuleset(view.ruleset) ? view.mode : null),
     );
   const currentCap = Math.max(
     1,
     Math.min(
-      view.betLimit ?? 600,
+      view.betLimit ?? matchRules(view.ruleset).initialStack * 2,
       view.chips.human + view.contributions.human,
       view.chips.bot + view.contributions.bot,
     ),

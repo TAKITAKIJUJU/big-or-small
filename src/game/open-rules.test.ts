@@ -14,7 +14,7 @@ function checks(s: GameState) {
 }
 describe("抽選先行・全額上限・同数持越", () => {
   it("選札前に一度だけ抽選し、両者が確定するまで賭けられない", () => {
-    const initial = createGame();
+    const initial = createGame(false, "open");
     expect(initial.ruleset).toBe("open");
     expect(initial.phase).toBe("drawing");
     expect(() => select(initial, 13)).toThrow();
@@ -26,7 +26,7 @@ describe("抽選先行・全額上限・同数持越", () => {
     expect(select(s, 13).phase).toBe("betting");
   });
   it("初回から298まで、2回のレイズ制限・差額返還を維持する", () => {
-    let s = select(apply(createGame(), { type: "draw" }), 7);
+    let s = select(apply(createGame(false, "open"), { type: "draw" }), 7);
     expect(getLegalActions(s, "human").at(-1)).toEqual({ type: "bet", total: 298 });
     s = apply(s, { type: "act", player: "human", action: { type: "bet", total: 100 } });
     s = apply(s, { type: "act", player: "bot", action: { type: "raise", total: 200 } });
@@ -38,7 +38,7 @@ describe("抽選先行・全額上限・同数持越", () => {
     assertInvariants(s);
   });
   it("全額同数は追加298ずつを返し、4だけ持ち越して次回12から始まる", () => {
-    let s = select(apply(createGame(), { type: "draw" }), 13);
+    let s = select(apply(createGame(false, "open"), { type: "draw" }), 13);
     s = apply(s, { type: "act", player: "human", action: { type: "bet", total: 298 } });
     s = apply(s, { type: "act", player: "bot", action: { type: "call" } });
     expect(s.chips).toEqual({ human: 298, bot: 298 });
@@ -64,7 +64,7 @@ describe("抽選先行・全額上限・同数持越", () => {
     assertInvariants(s);
   });
   it("連続同数と最終回の折半でも全600を保ち、未決着資金を残さない", () => {
-    let s = createGame();
+    let s = createGame(false, "open");
     for (let r = 1; r <= 13; r++) {
       s = checks(select(apply(s, { type: "draw" }), r));
       assertInvariants(s);
@@ -76,7 +76,7 @@ describe("抽選先行・全額上限・同数持越", () => {
     expect(s.pot).toBe(0);
   });
   it("参加料で片側が0になる同数は、奇数残額でも折半してから続行可否を判定", () => {
-    let s = checks(select(apply(createGame(), { type: "draw" }), 1));
+    let s = checks(select(apply(createGame(false, "open"), { type: "draw" }), 1));
     s.chips = { human: 1, bot: 595 }; // 4は中央に保持
     s = apply(s, { type: "next" });
     expect(s.ante).toBe(1);
@@ -92,7 +92,7 @@ describe("抽選先行・全額上限・同数持越", () => {
       { type: "act", player: "human", action: { type: "check" } }, { type: "act", player: "bot", action: { type: "check" } },
       { type: "next" }, { type: "draw" }, { type: "select", player: "bot", card: 13 }, { type: "select", player: "human", card: 12 },
     ];
-    let s = createGame();
+    let s = createGame(false, "open");
     for (const command of commands) { entries.push({ command, ...(command.type === "draw" ? { roll: 0 } : {}) }); s = apply(s, command); }
     expect(replay({ ruleset: "open", allIn: false, entries })).toEqual(s);
     const clone = structuredClone(s); clone.selected.human = 11;
@@ -101,8 +101,8 @@ describe("抽選先行・全額上限・同数持越", () => {
     expect(chooseAction(hidden, "hard", () => 0.4)).toEqual(chooseAction(v, "hard", () => 0.4));
   });
   it("NPCの選札は公開されたBIGとSMALLで反転する", () => {
-    const big = getPlayerView(apply(createGame(), { type: "draw" }), "bot", false),
-      small = getPlayerView(apply(createGame(), { type: "draw" }, 0.9), "bot", false),
+    const big = getPlayerView(apply(createGame(false, "open"), { type: "draw" }), "bot", false),
+      small = getPlayerView(apply(createGame(false, "open"), { type: "draw" }, 0.9), "bot", false),
       mean = (v: typeof big) => cardPolicy(v, "hard").reduce((s, x) => s + x.card * x.probability, 0);
     expect(mean(big)).toBeGreaterThan(mean(small) + 2);
   });
@@ -112,7 +112,7 @@ it("新ルール240試合で全遷移の資金保存・合法NPC・持越精算�
   let seed = 333;
   const rng = () => ((seed = Math.imul(seed, 1664525) + 1013904223 >>> 0) / 4294967296);
   for (let t = 0; t < 240; t++) {
-    let s = createGame();
+    let s = createGame(false, "open");
     const difficulty = (["easy", "medium", "hard"] as const)[t % 3];
     while (s.phase !== "finished") {
       if (s.phase === "drawing") s = transition(s, { type: "draw" }, rng);

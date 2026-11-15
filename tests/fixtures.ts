@@ -3,7 +3,7 @@ import type { Session } from "../src/lib/session";
 /** 新ルールの全額同数。追加分を返し、4だけ中央に残す合法ログ。 */
 export function openCarryFixture() {
   const session: Session = { ruleset: "open", allIn: false, entries: [] };
-  let state = createGame();
+  let state = createGame(false, "open");
   const apply = (command: GameCommand) => {
     state = transition(state, command, () => 0);
     session.entries.push({ command, ...(command.type === "draw" ? { roll: 0 } : {}) });
