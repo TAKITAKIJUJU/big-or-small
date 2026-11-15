@@ -15,9 +15,13 @@ const files = walk("dist").filter((p) => !p.endsWith("/sw.js")),
 writeFileSync(
   "dist/sw.js",
   `const CACHE='handkerchief-${version}';const URLS=${JSON.stringify(urls)};
+async function audioRange(response,range){const bytes=await response.arrayBuffer(),size=bytes.byteLength,m=/^bytes=(\\d*)-(\\d*)$/.exec(range);let start,end;
+if(m&&(m[1]||m[2])){start=m[1]?Number(m[1]):Math.max(0,size-Number(m[2]));end=m[1]?(m[2]?Math.min(Number(m[2]),size-1):size-1):size-1;}
+if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||start>=size||end<start)return new Response(null,{status:416,headers:{'Content-Range':'bytes */'+size}});
+const headers=new Headers(response.headers);headers.delete('Content-Encoding');headers.set('Accept-Ranges','bytes');headers.set('Content-Range','bytes '+start+'-'+end+'/'+size);headers.set('Content-Length',String(end-start+1));return new Response(bytes.slice(start,end+1),{status:206,statusText:'Partial Content',headers});}
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(URLS.map(u=>new Request(u,{cache:'reload'}))))));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('handkerchief-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
-self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||new URL(e.request.url).origin!==self.location.origin)return;e.respondWith(caches.open(CACHE).then(async c=>{if(e.request.mode==='navigate')return (await c.match('/',{ignoreVary:true}))||fetch(e.request);return (await c.match(e.request,{ignoreVary:true}))||fetch(e.request);}));});
+self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||new URL(e.request.url).origin!==self.location.origin)return;e.respondWith(caches.open(CACHE).then(async c=>{if(e.request.mode==='navigate')return (await c.match('/',{ignoreVary:true}))||fetch(e.request);const cached=await c.match(e.request,{ignoreVary:true}),range=e.request.headers.get('range');if(cached&&range&&/\\.(mp3|wav)$/.test(new URL(e.request.url).pathname))return audioRange(cached,range);return cached||fetch(e.request);}));});
 `,
 );
 console.log(`Offline cache: ${urls.length} files; ${version}`);

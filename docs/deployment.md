@@ -13,7 +13,7 @@
 確認日2026-11-15。
 
 - https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/ ：静的資産へのリクエストは無料・無制限、資産保存の追加料金なし。動的Workerを起動するリクエストは別扱い。
-- https://developers.cloudflare.com/workers/platform/limits/#static-assets ：Freeは20,000資産／バージョン、1ファイル25MiB。今回のビルドは9ファイル、最大のJSも約264KB。
+- https://developers.cloudflare.com/workers/platform/limits/#static-assets ：Freeは20,000資産／バージョン、1ファイル25MiB。v1.2は16ファイル、合計約1.67MB、最大は内蔵時刻音声の約671KB。
 - https://developers.cloudflare.com/workers/platform/pricing/ ：Worker Cacheを有効にすると静的配信でも別のリクエスト課金条件があるため、既存同様無効を維持する。
 - https://developers.cloudflare.com/changelog/post/2026-11-11-static-assets-base-path/ ：新規構成はcf CLI、既存は利用中の方式を維持するという現行の案内を確認。
 - https://developers.cloudflare.com/cf/ ：CLIを新規利用する場合の公式入口。今回は認証済みの既存API連携で静的資産を送るため、CLIを追加して認証方式を混在させない。別環境で手動実行する場合は公式のログイン／プロジェクト手順を先に確認する。
@@ -43,3 +43,16 @@ Service WorkerにはskipWaitingを入れない。更新データの取得後、�
 初回公開ではCloudflareの/index.html→/という正規化で、キャッシュ内HTMLがリダイレクト済みResponseとなり、再ナビゲーション時にブラウザが拒否した。HTMLを最初から/で取得・保存する方式へ修正し、ソース0a3cca5の全11件が公開URLで成功。中間deployment 5d639477d6d34b0bb902bdaa0f034577はこの修正前の版。
 
 配信用ZIP、画面、資産照合JSONは /workspace/artifacts/usotuki/handkerchief/ 。Android実機未検証。
+
+## v1.1 音声・視認性の修正版
+
+2026-11-15、同じ https://usotuki.app/ へ公開。試聴の独立再生・時報のHTML Audioフォールバック・出力音量改善と、白地に濃い文字のUIへ更新した。計時・判定・IndexedDBの保存形式・既存設定は維持。
+
+- source：8e170c424c124db94ffa31b49dafc067a0788813
+- build：1d0ca794f8fda98ff246b98bca09dc015da8996f
+- deployment：9da5fe9556bc4a5ab224c337af77c6b5
+- 前版：d2234112fbf74f208b9bbbd244936cbe
+- chime.wavを含む静的10ファイルがビルドとバイト一致。assets-only、動的モジュールなし。
+- 単体40件成功。公開URLで全13件のブラウザ検査が成功（24.3秒）。試聴の終了までの再生、時報OFF時の試聴、Web Audio不可時の毎分00秒再生、主要文字・ボタンのコントラスト比4.5以上を含む。
+
+更新には全タブとPWAを閉じてから開き直す。画面下部のv1.1で確認できる。計測中の強制リロードは行わない。配信用ZIP、画面、照合JSONは /workspace/artifacts/usotuki/handkerchief-readability/ 。Android実機とスピーカーからの実際の聴取は未検証。

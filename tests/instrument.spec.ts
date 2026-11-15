@@ -1,5 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+const voiceIndex: Record<string, { start: number }> = JSON.parse(
+  readFileSync("src/audio/voice-index.json", "utf8"),
+);
 async function prepare(page: Page) {
   await page.goto("/");
   await page.getByRole("button", { name: /新しい試合/, exact: false }).click();
@@ -194,6 +197,34 @@ test("PWAキャッシュ後は通信遮断でも起動・記録・時報設定�
     .toBe(true);
   await context.setOffline(true);
   await page.reload();
+  const partial = await page.evaluate(async () => {
+    const a = await fetch("/time-voice.mp3", {
+      headers: { Range: "bytes=100-131" },
+    });
+    const b = await fetch("/time-voice.mp3", {
+      headers: { Range: "bytes=-16" },
+    });
+    const invalid = await fetch("/time-voice.mp3", {
+      headers: { Range: "bytes=999999999-" },
+    });
+    return {
+      status: a.status,
+      contentRange: a.headers.get("Content-Range"),
+      bytes: Array.from(new Uint8Array(await a.arrayBuffer())),
+      suffixStatus: b.status,
+      suffix: Array.from(new Uint8Array(await b.arrayBuffer())),
+      invalidStatus: invalid.status,
+    };
+  });
+  const voice = readFileSync("public/time-voice.mp3");
+  expect(partial).toEqual({
+    status: 206,
+    contentRange: `bytes 100-131/${voice.length}`,
+    bytes: Array.from(voice.subarray(100, 132)),
+    suffixStatus: 206,
+    suffix: Array.from(voice.subarray(-16)),
+    invalidStatus: 416,
+  });
   await page.getByRole("button", { name: /試合の続き/ }).click();
   await start(page);
   await page.getByRole("button", { name: /CHECK/ }).click();
@@ -342,7 +373,12 @@ test("時報OFFでも試聴は最後まで再生し、WebAudio不可でも毎分
     HTMLMediaElement.prototype.play = function () {
       if (!this.muted) {
         const target = window as typeof window & {
-          audiblePlays?: { at: number; volume: number; src: string }[];
+          audiblePlays?: {
+            at: number;
+            volume: number;
+            src: string;
+            position: number;
+          }[];
           sampleEnded?: boolean;
         };
         target.audiblePlays ??= [];
@@ -350,6 +386,7 @@ test("時報OFFでも試聴は最後まで再生し、WebAudio不可でも毎分
           at: Date.now(),
           volume: this.volume,
           src: this.src,
+          position: this.currentTime,
         });
         this.addEventListener(
           "ended",
@@ -365,31 +402,49 @@ test("時報OFFでも試聴は最後まで再生し、WebAudio不可でも毎分
   await fakeClock(page);
   await page.goto("/");
   await page.getByRole("button", { name: "設定", exact: true }).click();
-  await page.getByLabel("毎分00秒のチャイム").uncheck();
+  await page.getByLabel("時報（秒音・毎分00秒）").uncheck();
   await page.getByRole("button", { name: "時報を試聴", exact: true }).click();
   await expect(page.locator(".footnote")).toContainText("再生中");
   await expect
-    .poll(() =>
-      page.evaluate(
-        () => (window as typeof window & { sampleEnded?: boolean }).sampleEnded,
-      ),
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            (window as typeof window & { sampleEnded?: boolean }).sampleEnded,
+        ),
+      { timeout: 20000 },
     )
     .toBe(true);
-  await page.getByLabel("毎分00秒のチャイム").check();
-  await page.clock.fastForward(14000);
-  await page.clock.fastForward(1000);
+  await page.getByLabel("時報（秒音・毎分00秒）").check();
+  await page.clock.runFor(15000);
   const plays = await page.evaluate(
     () =>
       (
         window as typeof window & {
-          audiblePlays: { at: number; volume: number; src: string }[];
+          audiblePlays: {
+            at: number;
+            volume: number;
+            src: string;
+            position: number;
+          }[];
         }
       ).audiblePlays,
   );
   expect(plays.length).toBeGreaterThanOrEqual(2);
-  expect(plays.at(-1)!.at % 60000).toBe(0);
-  expect(plays.at(-1)!.volume).toBeGreaterThan(0.4);
-  expect(plays.at(-1)!.src).toContain("/chime.wav");
+  const tones = plays.filter((p) => /\/(tick|pip|chime)\.wav$/.test(p.src));
+  expect(
+    tones.filter((p) => p.src.endsWith("/pip.wav")).map((p) => p.at % 60000),
+  ).toEqual([57000, 58000, 59000]);
+  const bell = tones.find((p) => p.src.endsWith("/chime.wav"))!;
+  expect(bell.at % 60000).toBe(0);
+  expect(bell.volume).toBeGreaterThan(0.4);
+  expect(tones.some((p) => p.src.endsWith("/tick.wav"))).toBe(true);
+  expect(plays.some((p) => p.src.endsWith("/time-voice.mp3"))).toBe(true);
+  const speech = plays.filter((p) => p.src.endsWith("/time-voice.mp3"));
+  expect(speech[0].at % 60000).toBe(53000);
+  expect(speech).toHaveLength(3);
+  for (const [i, key] of ["hour-8", "minute-9", "second-0"].entries())
+    expect(speech[i].position).toBeCloseTo(voiceIndex[key].start, 3);
 });
 
 test("主要な文字・タイマー・操作ボタンのコントラストと結果の位置", async ({

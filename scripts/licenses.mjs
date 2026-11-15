@@ -27,5 +27,7 @@ for (const dir of [...new Set(paths)].sort()) {
   if (!files.length)
     out += `Package: ${pkg.repository?.url ?? pkg.homepage ?? pkg.name}\n`;
 }
+out += "\n========== Bundled time announcement audio ==========\n";
+out += readFileSync("public/audio-attribution.txt", "utf8");
 writeFileSync("public/licenses.txt", out);
 console.log(`Runtime license notices: ${paths.length} packages`);

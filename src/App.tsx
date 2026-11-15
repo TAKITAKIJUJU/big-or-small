@@ -8,7 +8,6 @@ import {
   total,
   type Person,
 } from "./domain/game";
-import { localVoice } from "./audio/chime";
 import { download, exportCSV, exportJSON, removeMatch } from "./storage/db";
 import {
   Chart,
@@ -20,13 +19,7 @@ import {
 } from "./ui/components";
 import "./style.css";
 type Page =
-  | "home"
-  | "setup"
-  | "match"
-  | "history"
-  | "past"
-  | "rules"
-  | "settings";
+  "home" | "setup" | "match" | "history" | "past" | "rules" | "settings";
 export default function App() {
   const app = useInstrument(),
     [page, setPage] = useState<Page>("home"),
@@ -42,8 +35,7 @@ export default function App() {
     ),
     [installPrompt, setInstallPrompt] = useState<
       (Event & { prompt?: () => Promise<void> }) | null
-    >(null),
-    [voiceAvailable, setVoiceAvailable] = useState(!!localVoice());
+    >(null);
   const m = app.current,
     d = useMemo(() => (m ? derive(m) : null), [m]),
     last = d?.turns.at(-1),
@@ -54,8 +46,7 @@ export default function App() {
       install = (e: Event) => {
         e.preventDefault();
         setInstallPrompt(e);
-      },
-      voices = () => setVoiceAvailable(!!localVoice());
+      };
     const offlineFailure = () =>
       setNotice(
         "オフライン準備に失敗しました。試合の合間にオンラインで再読込してください",
@@ -65,15 +56,11 @@ export default function App() {
     window.addEventListener("online", status);
     window.addEventListener("offline", status);
     window.addEventListener("beforeinstallprompt", install);
-    if ("speechSynthesis" in window)
-      speechSynthesis.addEventListener("voiceschanged", voices);
     return () => {
       window.removeEventListener("offline-unavailable", offlineFailure);
       window.removeEventListener("online", status);
       window.removeEventListener("offline", status);
       window.removeEventListener("beforeinstallprompt", install);
-      if ("speechSynthesis" in window)
-        speechSynthesis.removeEventListener("voiceschanged", voices);
     };
   }, [setNotice]);
   function go(next: Page) {
@@ -217,11 +204,18 @@ export default function App() {
                   </div>
                   <button
                     className="secondary"
-                    onClick={() => void app.audio(true)}
+                    onClick={() =>
+                      app.previewPlaying
+                        ? app.stopPreview()
+                        : void app.audio(true)
+                    }
                   >
-                    音を試す
+                    {app.previewPlaying ? "試聴を止める" : "音を試す"}
                   </button>
                 </section>
+                <p className="footnote">
+                  試聴は約12秒。「午前8時8分」のサンプルです。
+                </p>
                 <p className="footnote">
                   記録はこの端末だけに保存。ログイン・対戦中の通信は不要です。
                 </p>
@@ -304,15 +298,19 @@ export default function App() {
                 <button
                   type="button"
                   className="secondary"
-                  onClick={() => void app.audio(true)}
+                  onClick={() =>
+                    app.previewPlaying
+                      ? app.stopPreview()
+                      : void app.audio(true)
+                  }
                 >
-                  毎分時報を試聴
+                  {app.previewPlaying ? "試聴を止める" : "毎分時報を試聴"}
                 </button>
                 <p className="footnote" role="status">
                   {app.previewPlaying ? "▶ 試聴を再生中" : app.audioNotice}
                 </p>
                 <p className="footnote">
-                  端末の音量・マナーモードを確認してください。落下・チェックの操作音と振動はありません。
+                  試聴は約12秒、「午前8時8分」のサンプルです。端末の音量・マナーモードを確認してください。落下・チェックの操作音と振動はありません。
                 </p>
                 <button className="primary" disabled={app.fault || app.saving}>
                   準備を終える →
@@ -386,7 +384,7 @@ export default function App() {
                   <p className="audio-state">
                     {app.settings.chime
                       ? app.audioReady
-                        ? "時報 ON · 毎分00秒"
+                        ? "時報 ON · 秒音と毎分00秒"
                         : "時報は未準備・計測は続行できます"
                       : "時報 OFF"}
                   </p>
@@ -650,7 +648,7 @@ export default function App() {
                   change={(hand) => app.update({ ...app.settings, hand })}
                 />
                 <label className="toggle">
-                  毎分00秒のチャイム
+                  時報（秒音・毎分00秒）
                   <input
                     type="checkbox"
                     checked={app.settings.chime}
@@ -660,9 +658,9 @@ export default function App() {
                   />
                 </label>
                 <label>
-                  チャイム音量 <b>{Math.round(app.settings.volume * 100)}%</b>
+                  時報の音量 <b>{Math.round(app.settings.volume * 100)}%</b>
                   <input
-                    aria-label="チャイム音量"
+                    aria-label="時報の音量"
                     type="range"
                     min="0"
                     max="1"
@@ -677,27 +675,29 @@ export default function App() {
                   />
                 </label>
                 <label className="toggle">
-                  声の時報（端末内の日本語音声）
+                  時刻の読み上げ（内蔵の男性音声）
                   <input
                     type="checkbox"
                     checked={app.settings.voice}
-                    disabled={!voiceAvailable}
                     onChange={(e) =>
                       app.update({ ...app.settings, voice: e.target.checked })
                     }
                   />
                 </label>
-                {!voiceAvailable && (
-                  <small>
-                    利用できる端末内の日本語音声がありません。チャイムは使えます。
-                  </small>
-                )}
+                <small>
+                  1秒ごとにチッ。57・58・59秒にピッ、00秒にポーン。時刻は00・20・40秒の7秒前から予告します。
+                </small>
                 <button
                   className="secondary"
-                  onClick={() => void app.audio(true)}
+                  onClick={() =>
+                    app.previewPlaying
+                      ? app.stopPreview()
+                      : void app.audio(true)
+                  }
                 >
-                  時報を試聴
+                  {app.previewPlaying ? "試聴を止める" : "時報を試聴"}
                 </button>
+                <small>試聴は約12秒。「午前8時8分」のサンプルです。</small>
                 <p className="footnote">
                   {app.previewPlaying ? "▶ 試聴を再生中" : app.audioNotice}{" "}
                   音声が利用できなくても計測は続行できます。
@@ -713,7 +713,7 @@ export default function App() {
                   />
                 </label>
                 <div className="rule-note">
-                  時報はターン開始からの60秒後ではなく、端末の実時刻の毎分00秒に鳴ります。音量・マナーモード・ブラウザ制限・遅延の影響を受けます。
+                  秒音と時報は端末の実時刻に合わせて鳴ります。毎分00秒のポーンが1分の基準です。音と読み上げは通信なしで使えます。音量・マナーモード・ブラウザ制限・遅延の影響を受けます。
                 </div>
                 <div className="rule-note">
                   <b>
@@ -784,7 +784,7 @@ export default function App() {
         </div>
       )}
       <footer className="app-footer">
-        USOTUKI · ハンカチ計時器 · v1.1 <span>記録は端末内のみ</span>
+        USOTUKI · ハンカチ計時器 · v1.2 <span>記録は端末内のみ</span>
       </footer>
     </div>
   );

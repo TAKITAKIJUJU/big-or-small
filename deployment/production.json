@@ -1,27 +1,31 @@
 {
   "product": "USOTUKI ハンカチ落とし計時器",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "url": "https://usotuki.app/",
   "worker": "usotuki",
-  "sourceCommit": "0a3cca56618ad6c662423eaa59ef171a621a98d4",
-  "buildCommit": "e1b2d7de67768d1504408480300c41d1457b4c91",
-  "deploymentId": "d2234112fbf74f208b9bbbd244936cbe",
-  "previousDeploymentId": "5d639477d6d34b0bb902bdaa0f034577",
+  "sourceCommit": "8e170c424c124db94ffa31b49dafc067a0788813",
+  "buildCommit": "1d0ca794f8fda98ff246b98bca09dc015da8996f",
+  "deploymentId": "9da5fe9556bc4a5ab224c337af77c6b5",
+  "previousDeploymentId": "d2234112fbf74f208b9bbbd244936cbe",
   "previousProductDeploymentId": "263e9a79915e452592e119ad79af400f",
-  "updatedAt": "2026-11-15T15:17:14.005103+00:00",
+  "updatedAt": "2026-11-15T16:09:26.390885+00:00",
   "compatibilityDate": "2026-11-14",
   "assetsOnly": true,
   "runWorkerFirst": false,
   "workerCacheEnabled": false,
   "bindings": [],
   "manifest": {
-    "/assets/index-Bumuzmkj.js": {
-      "hash": "a08f6e0fa3e22c76224b8b122d81f789",
-      "size": 263400
+    "/assets/index-CWjdPo66.js": {
+      "hash": "79d513831cae3fc66463cbe033b157c4",
+      "size": 265908
     },
-    "/assets/index-D3HSx3rV.css": {
-      "hash": "81db573bfbc2cdb7463e914d25ea27fc",
-      "size": 15716
+    "/assets/index-D-O8FZy1.css": {
+      "hash": "c90d9da3b96b55656723d0d4179e8f7e",
+      "size": 15991
+    },
+    "/chime.wav": {
+      "hash": "b61ec72679f51e7675fab789ee50e4d5",
+      "size": 119114
     },
     "/favicon.svg": {
       "hash": "c8a4c9a5afea17905ff90281a1543530",
@@ -36,7 +40,7 @@
       "size": 3843
     },
     "/index.html": {
-      "hash": "f634f528cc65ca4c59dd3a74d947a5d9",
+      "hash": "d6e43c2ad7c2080defd841b87064454b",
       "size": 920
     },
     "/licenses.txt": {
@@ -44,12 +48,12 @@
       "size": 3492
     },
     "/manifest.webmanifest": {
-      "hash": "c89ed191250ef8c17d491f9f9e6c76c0",
+      "hash": "d953d7bf2e78f15c4143c21485172b09",
       "size": 607
     },
     "/sw.js": {
-      "hash": "90417047534a590e8211ae7dad74e051",
-      "size": 886
+      "hash": "aba00464277dade712007f9b77c6a215",
+      "size": 899
     }
   },
   "rulesVersion": "handkerchief-1",
@@ -59,5 +63,13 @@
     "skipWaiting": false,
     "htmlCacheURL": "/"
   },
-  "archiveBranch": "codex/archive-air-poker-wip-20261115"
+  "archiveBranch": "codex/archive-air-poker-wip-20261115",
+  "verification": {
+    "unitTests": 40,
+    "productionBrowserTests": 13,
+    "productionBrowserSeconds": 24.3,
+    "productionFilesMatch": 10,
+    "androidDeviceTested": false,
+    "physicalSpeakerTested": false
+  }
 }
