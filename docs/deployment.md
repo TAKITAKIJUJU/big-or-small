@@ -71,3 +71,16 @@ Service WorkerにはskipWaitingを入れない。更新データの取得後、�
 中間deployment eecf8ae21c7347ac97b70b06d7107ebaでは、初回のCDN音声がRange非対応でHTML Audioのシークが0秒へ戻ることを発見。現在は全内蔵音声を一度読み込み、HTML AudioはローカルBlobのメタデータ準備後に再生する。PWAキャッシュも音声のRange要求へ206で応答する。
 
 全タブとPWAを閉じて開き直し、画面下部のv1.2で確認。配信用ZIP・試聴音声・画面・照合JSONは /workspace/artifacts/usotuki/handkerchief-time-signal/ 。Android実機のスピーカーでの聴取・音量は未検証。
+
+## v1.3 10秒ごと・女性音声・ターン間の音声復帰
+
+2026-11-15、同じ https://usotuki.app/ へ公開。長音と時刻予告を10秒ごとへ変更し、内蔵音声をMei (normal)の女性音声へ更新した。各ターンの開始時に代替音声の再生経路を準備し直し、AudioContextが終了状態なら再作成する。復帰時には時報予約も再同期。計時・判定・保存形式は維持。
+
+- source：007931c121276af01a5542131a544724be6d4986
+- build：25dfef199ca41f618a2f650a1bb9f4b8f03684b1
+- deployment：3c323445b33b431c87e3f4c2568e96bf
+- 前版：fe620b5abf974f72a40d154848382c12
+- 静的16ファイルがビルドとバイト一致。assets-only、動的モジュールなし、bindingsなし、DNS変更なし。
+- 単体44件成功。公開URLの全15件のブラウザ検査が成功（40.8秒）。3ターン連続の時報と読み上げ、音声機能を閉じた後の2ターン目の復帰も含む。
+
+全タブとPWAを閉じて開き直し、画面下部のv1.3で確認する。計測中の強制再読込は行わない。配信用ZIP・女性音声サンプル・画面・照合JSONは /workspace/artifacts/usotuki/handkerchief-ten-second-voice/ 。ユーザーの実機で起きた停止原因そのものとスピーカーでの聴取は未確認。
