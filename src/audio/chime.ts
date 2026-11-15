@@ -416,29 +416,37 @@ export async function previewChime(
   if (p.volume <= 0)
     throw new Error("音量が0%です。音量を上げてから試聴してください");
   stopPreview();
+  const generation = preview.generation;
   previewState = onPlaying;
   cancelSound();
   previewActive = true;
   void unlockAudio().catch(() => {});
   try {
     const src = p.voice ? "/signal-preview-voice.mp3" : "/signal-preview.wav";
-    previewMedia ??= new Audio(src);
-    if (previewMedia.getAttribute("src") !== src) previewMedia.src = src;
+    const player = new Audio(src);
+    previewMedia = player;
     previewMedia.preload = "auto";
     previewMedia.volume = p.volume;
     previewMedia.currentTime = 0;
     previewMedia.onplaying = () => {
+      if (generation !== preview.generation) return;
       previewActive = true;
       onPlaying(true);
     };
     previewMedia.onended = previewMedia.onpause = () => {
+      if (generation !== preview.generation) return;
       previewActive = false;
       onPlaying(false);
     };
     // awaitの前にplay()を実行してユーザー操作を引き継ぐ。
-    await previewMedia.play();
+    await player.play();
+    if (generation !== preview.generation) {
+      player.pause();
+      return "cancelled" as const;
+    }
     return "media" as const;
   } catch {
+    if (generation !== preview.generation) return "cancelled" as const;
     if (synthTone(p, "bell", 0, preview)) {
       for (let s = 1; s <= 10; s++)
         synthTone(

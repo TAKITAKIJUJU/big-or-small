@@ -213,3 +213,41 @@ it("ターンをまたぐ再準備で、閉じたAudioContextを作り直し、�
   await expect(audio.unlockAudio(true)).rejects.toThrow("音声再生を許可");
   expect(audio.isAudioReady()).toBe(false);
 });
+it("読み込み中に止めた試聴が、拒否後の代替音で鳴り直さない", async () => {
+  vi.resetModules();
+  vi.useFakeTimers();
+  const oscillator = vi.fn();
+  let rejectPreview: (error: Error) => void = () => {};
+  class Context {
+    state = "running";
+    resume = () => Promise.resolve();
+    createOscillator = oscillator;
+  }
+  class Media {
+    muted = false;
+    preload = "";
+    currentTime = 0;
+    volume = 1;
+    onpause: (() => void) | null = null;
+    play() {
+      return this.muted
+        ? Promise.resolve()
+        : new Promise<void>((_, reject) => {
+            rejectPreview = reject;
+          });
+    }
+    pause() {
+      this.onpause?.();
+    }
+  }
+  vi.stubGlobal("AudioContext", Context);
+  vi.stubGlobal("Audio", Media);
+  const audio = await import("./chime"),
+    playing = vi.fn();
+  const sample = audio.previewChime(audio.DEFAULTS, playing);
+  audio.stopPreview();
+  rejectPreview(new Error("aborted by navigation"));
+  await expect(sample).resolves.toBe("cancelled");
+  expect(oscillator).not.toHaveBeenCalled();
+  expect(playing).toHaveBeenLastCalledWith(false);
+});

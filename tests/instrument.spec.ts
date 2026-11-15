@@ -416,6 +416,12 @@ test("時報OFFでも試聴は最後まで再生し、WebAudio不可でも毎分
     )
     .toBe(true);
   await page.getByLabel("時報（秒音・10秒ごと）").check();
+  await page.getByRole("button", { name: "戻る", exact: true }).click();
+  await page.getByRole("button", { name: /新しい試合/ }).click();
+  await page
+    .getByRole("button", { name: "準備を終える →", exact: true })
+    .click();
+  await start(page);
   await page.clock.runFor(15000);
   const plays = await page.evaluate(
     () =>
@@ -641,3 +647,127 @@ test("音声機能が閉じられても2ターン目の開始で作り直し、�
     tones.filter((p) => p.frequency === 500 && p.state === "running"),
   ).toHaveLength(3);
 });
+
+for (const fallback of [false, true]) {
+  test(`ホームでは自動再生せず、試聴停止・画面移動・対戦後も静かなまま（${fallback ? "代替音声" : "Web Audio"}）`, async ({
+    page,
+  }) => {
+    await page.addInitScript((fallback) => {
+      const audit = {
+        media: [] as HTMLAudioElement[],
+        plays: 0,
+        starts: 0,
+        cancels: 0,
+      };
+      (window as typeof window & { homeAudio: typeof audit }).homeAudio = audit;
+      const NativeAudio = window.Audio;
+      window.Audio = function (src?: string) {
+        const audio = new NativeAudio(src);
+        audit.media.push(audio);
+        return audio;
+      } as unknown as typeof Audio;
+      const play = HTMLMediaElement.prototype.play;
+      HTMLMediaElement.prototype.play = function () {
+        const audible = !this.muted;
+        return play.call(this).then(() => {
+          if (audible) audit.plays++;
+        });
+      };
+      const oscillator = OscillatorNode.prototype.start;
+      OscillatorNode.prototype.start = function (when?: number) {
+        audit.starts++;
+        oscillator.call(this, when);
+      };
+      const voice = AudioBufferSourceNode.prototype.start;
+      AudioBufferSourceNode.prototype.start = function (
+        when?: number,
+        offset?: number,
+        duration?: number,
+      ) {
+        audit.starts++;
+        voice.call(this, when, offset, duration);
+      };
+      const stop = AudioScheduledSourceNode.prototype.stop;
+      AudioScheduledSourceNode.prototype.stop = function (when?: number) {
+        if (when === undefined) audit.cancels++;
+        stop.call(this, when);
+      };
+      if (fallback)
+        window.AudioContext = class {
+          constructor() {
+            throw new Error("unavailable");
+          }
+        } as unknown as typeof AudioContext;
+    }, fallback);
+    const counts = () =>
+      page.evaluate(() => {
+        const a = (
+          window as typeof window & {
+            homeAudio: {
+              media: HTMLAudioElement[];
+              plays: number;
+              starts: number;
+              cancels: number;
+            };
+          }
+        ).homeAudio;
+        return {
+          plays: a.plays,
+          starts: a.starts,
+          cancels: a.cancels,
+          paused: a.media.every((m) => m.paused),
+        };
+      });
+    await fakeClock(page);
+    await page.goto("/");
+    await page.clock.runFor(65000);
+    expect(await counts()).toMatchObject({ plays: 0, starts: 0, paused: true });
+    await page.getByRole("button", { name: "音を試す", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "試聴を止める", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "試聴を止める", exact: true })
+      .click();
+    await expect.poll(async () => (await counts()).paused).toBe(true);
+    const stopped = await counts();
+    await page.clock.runFor(65000);
+    expect(await counts()).toEqual(stopped);
+    await page.getByRole("button", { name: "音を試す", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "試聴を止める", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "設定", exact: true }).click();
+    await expect.poll(async () => (await counts()).paused).toBe(true);
+    const settings = await counts();
+    await page.clock.runFor(65000);
+    expect(await counts()).toEqual(settings);
+    await page.getByRole("button", { name: "戻る", exact: true }).click();
+    await page.getByRole("button", { name: /新しい試合/ }).click();
+    await page
+      .getByRole("button", { name: "準備を終える →", exact: true })
+      .click();
+    await start(page);
+    await page.clock.runFor(7000);
+    await page.getByRole("button", { name: /DROP/ }).click();
+    await page.clock.runFor(2000);
+    await page.getByRole("button", { name: /CHECK/ }).click();
+    const match = await counts();
+    expect(match.plays + match.starts).toBeGreaterThan(
+      settings.plays + settings.starts,
+    );
+    await page.getByRole("button", { name: "ホーム", exact: true }).click();
+    await expect.poll(async () => (await counts()).paused).toBe(true);
+    const home = await counts();
+    if (!fallback) expect(home.cancels).toBeGreaterThan(match.cancels);
+    await page.clock.runFor(65000);
+    expect(await counts()).toEqual(home);
+    await page.getByRole("button", { name: /試合の続き/ }).click();
+    await start(page);
+    await page.clock.runFor(11000);
+    const resumed = await counts();
+    expect(resumed.plays + resumed.starts).toBeGreaterThan(
+      home.plays + home.starts,
+    );
+  });
+}
