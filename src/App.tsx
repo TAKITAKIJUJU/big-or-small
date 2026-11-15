@@ -131,7 +131,7 @@ export default function App() {
   const record = (kind: "drop" | "check") => app.clock.input(kind);
   return (
     <div
-      className={`instrument ${app.settings.reduced ? "reduce-motion" : ""}`}
+      className={`instrument ${running && page === "match" ? "is-running" : ""} ${app.settings.reduced ? "reduce-motion" : ""}`}
     >
       <header className="app-header" inert={!!dialog}>
         <button className="brand" disabled={running} onClick={() => go("home")}>
@@ -168,23 +168,16 @@ export default function App() {
           {page === "home" && (
             <>
               <section className="hero">
-                <div className="eyebrow">TWO PLAYERS · ONE INSTRUMENT</div>
-                <h1>
-                  振り向く、
-                  <br />
-                  <em>その際を測る。</em>
-                </h1>
-                <p>
-                  ハンカチと椅子、スマホ1台。
-                  <br />
-                  実物で遊ぶ2人の心理戦を、正確に記録する。
-                </p>
-                <div className="home-dial">
-                  <span>LIMIT</span>
-                  <strong>
-                    300<small>s</small>
-                  </strong>
-                  <i>蓄積 ＋ 消化済み</i>
+                <div className="eyebrow">2人用・スマホ1台</div>
+                <h1>ハンカチ落とし</h1>
+                <p>計時・判定・記録</p>
+                <div className="home-facts">
+                  <span>
+                    1ターン <b>60秒</b>
+                  </span>
+                  <span>
+                    累計 <b>300秒</b>で敗北
+                  </span>
                 </div>
               </section>
               <section className="home-actions">
@@ -217,6 +210,18 @@ export default function App() {
                     ホーム画面に追加
                   </button>
                 )}
+                <section className="sound-check">
+                  <div>
+                    <b>音を確認</b>
+                    <p>{app.previewPlaying ? "▶ 再生中" : app.audioNotice}</p>
+                  </div>
+                  <button
+                    className="secondary"
+                    onClick={() => void app.audio(true)}
+                  >
+                    音を試す
+                  </button>
+                </section>
                 <p className="footnote">
                   記録はこの端末だけに保存。ログイン・対戦中の通信は不要です。
                 </p>
@@ -226,7 +231,7 @@ export default function App() {
           {page === "setup" && (
             <>
               <PageHeading
-                kicker="PREPARATION"
+                kicker="試合前の確認"
                 title="試合の準備"
                 back={() => go("home")}
               />
@@ -303,7 +308,9 @@ export default function App() {
                 >
                   毎分時報を試聴
                 </button>
-                <p className="footnote">{app.audioNotice}</p>
+                <p className="footnote" role="status">
+                  {app.previewPlaying ? "▶ 試聴を再生中" : app.audioNotice}
+                </p>
                 <p className="footnote">
                   端末の音量・マナーモードを確認してください。落下・チェックの操作音と振動はありません。
                 </p>
@@ -319,10 +326,10 @@ export default function App() {
                 <div>
                   <span className="eyebrow">
                     {d.loser
-                      ? "MATCH FINISHED"
+                      ? "終了"
                       : running
-                        ? "RECORDING"
-                        : "READY WHEN YOU ARE"}
+                        ? "計測中"
+                        : "準備ができたら開始"}
                   </span>
                   <h1>
                     {d.loser ? "試合終了" : `第 ${d.turns.length + 1} ターン`}
@@ -353,10 +360,18 @@ export default function App() {
               {!d.loser && (
                 <div className="role-band">
                   <span>
-                    <b>D</b> {m.names[d.dropper]} <small>スマホを持つ</small>
+                    <b>D</b> {m.names[d.dropper]}{" "}
+                    <small>
+                      スマホを持つ · 累計 {seconds(total(d.scores[d.dropper]))}
+                      秒
+                    </small>
                   </span>
                   <span>
-                    <b>C</b> {m.names[other(d.dropper)]} <small>前を向く</small>
+                    <b>C</b> {m.names[other(d.dropper)]}{" "}
+                    <small>
+                      前を向く · 累計{" "}
+                      {seconds(total(d.scores[other(d.dropper)]))}秒
+                    </small>
                   </span>
                 </div>
               )}
@@ -367,6 +382,13 @@ export default function App() {
                     {app.dropped === null
                       ? "落下・チェックを記録してください"
                       : `落下 ${seconds(app.dropped)} 秒で記録済み`}
+                  </p>
+                  <p className="audio-state">
+                    {app.settings.chime
+                      ? app.audioReady
+                        ? "時報 ON · 毎分00秒"
+                        : "時報は未準備・計測は続行できます"
+                      : "時報 OFF"}
                   </p>
                   <p className="wake-note">{app.wakeNotice}</p>
                   <div
@@ -410,6 +432,22 @@ export default function App() {
                   </p>
                 </>
               )}
+              {!running && last && (
+                <section className="last-result" aria-label="直前ターンの結果">
+                  <span className="eyebrow">前のターン · {last.number}</span>
+                  <h2>{REASONS[last.reason]}</h2>
+                  <p>
+                    {m.names[last.subject]}：
+                    {last.reason === "success"
+                      ? `蓄積 +${seconds(last.addedMs)} 秒`
+                      : `ペナルティ +60.00 秒 ／ 今回の消化 ${seconds(last.consumedThisTurnMs)} 秒`}
+                  </p>
+                  <details>
+                    <summary>計算の内訳</summary>
+                    <TurnDetail turn={last} match={m} />
+                  </details>
+                </section>
+              )}
               {!running && !d.loser && (
                 <div className="start-area">
                   {m.events.at(-1)?.kind === "interrupted" && (
@@ -430,7 +468,7 @@ export default function App() {
                   </p>
                 </div>
               )}
-              <div className="score-grid">
+              <div className="score-grid" hidden={running}>
                 {(["A", "B"] as Person[]).map((p) => (
                   <ScoreCard
                     key={p}
@@ -446,20 +484,11 @@ export default function App() {
                   />
                 ))}
               </div>
-              <p className="formula-note">
+              <p className="formula-note" hidden={running}>
                 <span className="swatch accumulated" /> 蓄積 ＋{" "}
                 <span className="swatch consumed" /> 消化済み ＝
                 累計。ペナルティは消化済みの内訳です。
               </p>
-              {!running && last && (
-                <section className="last-result" aria-label="直前ターンの結果">
-                  <div className="section-heading">
-                    <span>LAST TURN · {last.number}</span>
-                    <h2>{REASONS[last.reason]}</h2>
-                  </div>
-                  <TurnDetail turn={last} match={m} />
-                </section>
-              )}
               {!running && (
                 <>
                   <div className="button-row">
@@ -507,7 +536,7 @@ export default function App() {
           {page === "history" && m && (
             <>
               <PageHeading
-                kicker="RECORDS"
+                kicker="記録"
                 title={`${m.names.A} × ${m.names.B}`}
                 back={() => go("match")}
               />
@@ -549,7 +578,7 @@ export default function App() {
           {page === "past" && (
             <>
               <PageHeading
-                kicker="ARCHIVE"
+                kicker="端末内に保存"
                 title="過去の試合"
                 back={() => go("home")}
               />
@@ -601,7 +630,7 @@ export default function App() {
           {page === "rules" && (
             <>
               <PageHeading
-                kicker="RULEBOOK"
+                kicker="遊び方"
                 title="ルールと計測について"
                 back={() => go("home")}
               />
@@ -611,7 +640,7 @@ export default function App() {
           {page === "settings" && (
             <>
               <PageHeading
-                kicker="INSTRUMENT SETTINGS"
+                kicker="設定"
                 title="計器の設定"
                 back={() => go("home")}
               />
@@ -631,7 +660,7 @@ export default function App() {
                   />
                 </label>
                 <label>
-                  チャイム音量
+                  チャイム音量 <b>{Math.round(app.settings.volume * 100)}%</b>
                   <input
                     aria-label="チャイム音量"
                     type="range"
@@ -670,7 +699,8 @@ export default function App() {
                   時報を試聴
                 </button>
                 <p className="footnote">
-                  {app.audioNotice} 音声が利用できなくても計測は続行できます。
+                  {app.previewPlaying ? "▶ 試聴を再生中" : app.audioNotice}{" "}
+                  音声が利用できなくても計測は続行できます。
                 </p>
                 <label className="toggle">
                   アニメーションを軽減
@@ -754,7 +784,7 @@ export default function App() {
         </div>
       )}
       <footer className="app-footer">
-        USOTUKI / HANDKERCHIEF INSTRUMENT <span>記録は端末内のみ</span>
+        USOTUKI · ハンカチ計時器 · v1.1 <span>記録は端末内のみ</span>
       </footer>
     </div>
   );
