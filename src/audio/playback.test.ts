@@ -37,11 +37,11 @@ it("保存済みの音量0やOFFを勝手に書き換えない", () => {
     preferences({ voice: false, soundProfile: "time-signal" }),
   ).toMatchObject({ voice: false });
 });
-it("内蔵音声は24時間・全60分・00/20/40秒を網羅し、予告時間内に読める", () => {
+it("内蔵音声は24時間・全60分・10秒ごとの案内を網羅し、予告時間内に読める", () => {
   const index: Record<string, { start: number; length: number }> = voiceIndex;
   for (let h = 0; h < 24; h++)
     for (let m = 0; m < 60; m++)
-      for (const s of [0, 20, 40]) {
+      for (const s of [0, 10, 20, 30, 40, 50]) {
         const clips = [`hour-${h}`, `minute-${m}`, `second-${s}`].map(
           (key) => index[key],
         );
@@ -153,4 +153,63 @@ it("全ての再生経路が拒否された場合に、再生済みと返さな�
   await expect(
     audio.previewChime({ ...audio.DEFAULTS, volume: 0 }, vi.fn()),
   ).rejects.toThrow("0%");
+});
+it("ターンをまたぐ再準備で、閉じたAudioContextを作り直し、代替音声の許可も取り直す", async () => {
+  vi.resetModules();
+  vi.useFakeTimers();
+  class Context {
+    static all: Context[] = [];
+    state = "suspended";
+    constructor() {
+      Context.all.push(this);
+    }
+    resume = vi.fn(async () => {
+      this.state = "running";
+    });
+  }
+  class Media {
+    static all: Media[] = [];
+    static blocked = false;
+    muted = false;
+    paused = true;
+    preload = "";
+    currentTime = 0;
+    play = vi.fn(async () => {
+      if (Media.blocked) throw new Error("permission lost");
+      this.paused = false;
+    });
+    pause() {
+      this.paused = true;
+    }
+    constructor(public src: string) {
+      Media.all.push(this);
+    }
+  }
+  vi.stubGlobal("AudioContext", Context);
+  vi.stubGlobal("Audio", Media);
+  const audio = await import("./chime");
+  expect(await audio.unlockAudio(true)).toBe(true);
+  Context.all[0].state = "closed";
+  expect(await audio.unlockAudio(true)).toBe(true);
+  expect(Context.all).toHaveLength(2);
+  expect(audio.isAudioReady()).toBe(true);
+  expect(await audio.unlockAudio(true)).toBe(false);
+  expect(Context.all).toHaveLength(2);
+  expect(
+    Media.all.filter(
+      (m) => m.play.mock.calls.length === 1 && !m.muted && m.paused,
+    ),
+  ).toHaveLength(9);
+  Context.all[1].state = "closed";
+  Media.blocked = true;
+  vi.stubGlobal(
+    "AudioContext",
+    class {
+      constructor() {
+        throw new Error("unavailable");
+      }
+    },
+  );
+  await expect(audio.unlockAudio(true)).rejects.toThrow("音声再生を許可");
+  expect(audio.isAudioReady()).toBe(false);
 });

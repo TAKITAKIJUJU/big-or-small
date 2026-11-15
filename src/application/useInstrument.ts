@@ -38,6 +38,7 @@ export function useInstrument() {
     [wakeNotice, setWakeNotice] = useState(""),
     [previewPlaying, setPreviewPlaying] = useState(false),
     [audioReady, setAudioReady] = useState(false),
+    [audioRevision, setAudioRevision] = useState(0),
     [audioNotice, setAudioNotice] =
       useState("時報は試聴で動作を確認してください"),
     [, force] = useState(0);
@@ -189,7 +190,7 @@ export function useInstrument() {
       clearInterval(timer);
       cancelSound();
     };
-  }, [settings]);
+  }, [settings, audioRevision]);
   const active = !!current?.active;
   useEffect(() => {
     if (!active) return;
@@ -231,7 +232,8 @@ export function useInstrument() {
           "試聴を再生しました。聞こえない場合は端末のメディア音量を確認してください",
         );
       } else {
-        await unlockAudio();
+        const recovered = await unlockAudio(true);
+        if (recovered) setAudioRevision((revision) => revision + 1);
         setAudioNotice("時報の再生を準備しました");
       }
       setAudioReady(true);

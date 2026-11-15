@@ -13,7 +13,7 @@
 確認日2026-11-15。
 
 - https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/ ：静的資産へのリクエストは無料・無制限、資産保存の追加料金なし。動的Workerを起動するリクエストは別扱い。
-- https://developers.cloudflare.com/workers/platform/limits/#static-assets ：Freeは20,000資産／バージョン、1ファイル25MiB。v1.2は16ファイル、合計約1.67MB、最大は内蔵時刻音声の約671KB。
+- https://developers.cloudflare.com/workers/platform/limits/#static-assets ：Freeは20,000資産／バージョン、1ファイル25MiB。v1.3は16ファイル、合計約1.63MB、最大は内蔵時刻音声の約643KB。
 - https://developers.cloudflare.com/workers/platform/pricing/ ：Worker Cacheを有効にすると静的配信でも別のリクエスト課金条件があるため、既存同様無効を維持する。
 - https://developers.cloudflare.com/changelog/post/2026-11-11-static-assets-base-path/ ：新規構成はcf CLI、既存は利用中の方式を維持するという現行の案内を確認。
 - https://developers.cloudflare.com/cf/ ：CLIを新規利用する場合の公式入口。今回は認証済みの既存API連携で静的資産を送るため、CLIを追加して認証方式を混在させない。別環境で手動実行する場合は公式のログイン／プロジェクト手順を先に確認する。

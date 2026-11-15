@@ -6,6 +6,6 @@ React、React DOM、Scheduler：MIT License。配信する完全なライセン�
 
 秒音tick.wav（2000Hz）、予告音pip.wav（500Hz）、長音chime.wav（1000Hz）は独自の正弦波合成（PCM 16bit／22.05kHz／モノラル）。原作や電話サービスの録音素材は使用しない。
 
-内蔵時刻音声time-voice.mp3と試聴音声signal-preview-voice.mp3は、Open JTalk／HTS Voice NIT ATR503 M001から生成し、切り出し・音量調整・再サンプリング・MP3化・独自音とのミックスを行った。音声／データベースは名古屋工業大学（2003–2012）および東京工業大学（2003–2008）、CC BY 3.0。完全な出典とライセンス告知は[public/audio-attribution.txt](public/audio-attribution.txt)、配信の/audio-attribution.txtと/licenses.txtに含む。開発用エンジンやモデルをアプリに同梱せず、関係機関の推奨や原作の声の再現を示すものではない。
+内蔵時刻音声time-voice.mp3と試聴音声signal-preview-voice.mp3は、Open JTalk／HTS Voice Mei (normal) / MMDAgent Project Teamから生成し、切り出し・音量調整・再サンプリング・MP3化・独自音とのミックスを行った。音声は名古屋工業大学（2009–2013）、CC BY 3.0。完全な出典とライセンス告知は[public/audio-attribution.txt](public/audio-attribution.txt)、配信の/audio-attribution.txtと/licenses.txtに含む。開発用エンジンやモデルをアプリに同梱せず、関係機関の推奨や原作の声の再現を示すものではない。
 
 開発時のライブラリはpackage-lock.jsonを参照。以前使用していた3D依存は今回の実行時依存と配信物から撤去した。
