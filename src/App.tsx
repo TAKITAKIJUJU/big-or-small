@@ -394,7 +394,12 @@ export default function App() {
                   >
                     {app.countdown}
                   </div>
-                  <p className="footnote center">0になったら60秒の計測開始</p>
+                  <p className="footnote center">
+                    ピッ、ピッ、ピッ、ポーンで計測開始
+                  </p>
+                  <p className="footnote center" role="status">
+                    {app.audioNotice}
+                  </p>
                   <button className="secondary" onClick={app.cancelCountdown}>
                     開始を取り消す
                   </button>
@@ -811,7 +816,7 @@ export default function App() {
         </div>
       )}
       <footer className="app-footer">
-        USOTUKI · ハンカチ計時器 · v1.5 <span>記録は端末内のみ</span>
+        USOTUKI · ハンカチ計時器 · v1.5.1 <span>記録は端末内のみ</span>
       </footer>
     </div>
   );

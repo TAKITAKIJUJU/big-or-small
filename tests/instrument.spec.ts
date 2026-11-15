@@ -20,7 +20,12 @@ async function start(page: Page) {
   await page
     .getByRole("button", { name: /カウント開始|次のターンを開始/ })
     .click();
-  if (timedPages.has(page)) await page.clock.runFor(3000);
+  if (timedPages.has(page)) {
+    await expect(
+      page.locator("[aria-label=開始前カウントダウン]"),
+    ).toContainText(/準備しました|許可していません|有効にできません|拒否/);
+    await page.clock.runFor(3000);
+  }
   await expect(page.getByRole("button", { name: /CHECK/ })).toBeVisible();
 }
 async function fakeClock(page: Page) {
@@ -442,9 +447,11 @@ test("時報OFFでも試聴は最後まで再生し、WebAudio不可でも毎分
   );
   expect(plays.length).toBeGreaterThanOrEqual(2);
   const tones = plays.filter((p) => /\/(tick|pip|chime)\.wav$/.test(p.src));
-  expect(tones.filter((p) => p.src.endsWith("/pip.wav"))).toHaveLength(0);
+  expect(
+    tones.filter((p) => p.src.endsWith("/pip.wav")).map((p) => p.at % 60000),
+  ).toEqual([45000, 46000, 47000]);
   const bells = tones.filter((p) => p.src.endsWith("/chime.wav"));
-  expect(bells.map((p) => p.at % 60000)).toEqual([58000]);
+  expect(bells.map((p) => p.at % 60000)).toEqual([48000, 58000]);
   const bell = bells.at(-1)!;
   expect(bell.volume).toBeGreaterThan(0.4);
   expect(tones.some((p) => p.src.endsWith("/tick.wav"))).toBe(true);
@@ -647,7 +654,7 @@ test("音声機能が閉じられても2ターン目の開始で作り直し、�
   );
   expect(
     tones.filter((p) => p.frequency === 500 && p.state === "running"),
-  ).toHaveLength(0);
+  ).toHaveLength(3);
 });
 
 for (const fallback of [false, true]) {
@@ -802,7 +809,7 @@ test("実時計を6時間変えても開始10秒で鳴り、早期終了後は�
   let bells = await page.evaluate(
     () => (window as typeof window & { elapsedBells: number[] }).elapsedBells,
   );
-  expect(bells).toEqual([began + 10000]);
+  expect(bells).toEqual([began, began + 10000]);
   await page.getByRole("button", { name: /CHECK/ }).click();
   await page.clock.runFor(65000);
   expect(
@@ -865,4 +872,87 @@ test("開始前3秒は判定せず、取り消し・非表示で無効化し、3
   await page.clock.runFor(1000);
   await page.getByRole("button", { name: /CHECK/ }).click();
   await expect(page.locator(".last-result")).toContainText("1.00");
+});
+
+test("開始前3・2・1と計測開始を音で知らせ、取消では残りの音を止める", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.AudioContext = class {
+      constructor() {
+        throw new Error("fallback");
+      }
+    } as unknown as typeof AudioContext;
+    (
+      window as typeof window & { startSounds: { at: number; src: string }[] }
+    ).startSounds = [];
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      const record =
+        !this.muted && /\/(pip|chime)\.wav$/.test(this.src)
+          ? { at: performance.now(), src: this.src }
+          : null;
+      return play.call(this).then(() => {
+        if (record)
+          (
+            window as typeof window & {
+              startSounds: { at: number; src: string }[];
+            }
+          ).startSounds.push(record);
+      });
+    };
+  });
+  await fakeClock(page);
+  await prepare(page);
+  const begin = () =>
+    page.getByRole("button", { name: /カウント開始|次のターンを開始/ }).click();
+  await begin();
+  await expect(page.locator("[aria-label=開始前カウントダウン]")).toContainText(
+    "準備しました",
+  );
+  const began = await page.evaluate(() => performance.now());
+  await page.clock.runFor(3000);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as typeof window & { startSounds: unknown[] }).startSounds
+            .length,
+      ),
+    )
+    .toBe(4);
+  const sounds = await page.evaluate(
+    () =>
+      (window as typeof window & { startSounds: { at: number; src: string }[] })
+        .startSounds,
+  );
+  expect(sounds.map((s) => s.at - began)).toEqual([0, 1000, 2000, 3000]);
+  expect(sounds.map((s) => s.src.endsWith("/pip.wav"))).toEqual([
+    true,
+    true,
+    true,
+    false,
+  ]);
+  await page.getByRole("button", { name: /CHECK/ }).click();
+  await expect(
+    page.getByRole("button", { name: /次のターンを開始/ }),
+  ).toBeEnabled();
+  await begin();
+  await expect(page.locator("[aria-label=開始前カウントダウン]")).toContainText(
+    "準備しました",
+  );
+  await page.clock.runFor(1000);
+  await page.getByRole("button", { name: "開始を取り消す" }).click();
+  const stopped = await page.evaluate(
+    () =>
+      (window as typeof window & { startSounds: unknown[] }).startSounds.length,
+  );
+  await page.clock.runFor(10000);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as typeof window & { startSounds: unknown[] }).startSounds
+          .length,
+    ),
+  ).toBe(stopped);
 });

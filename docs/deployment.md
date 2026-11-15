@@ -108,3 +108,14 @@ build: e11f443c0dfa00a5afafa70f2c5cf3c40f1eb153
 deployment: 76023b96b4a44127b58dbc4ab7e9cd4c
 
 単体45件、公開URLの全18件成功（49.8秒）。実時計の6時間変更、早期終了後の無音、次ターンの再起算を含む。静的16ファイル一致。実機スピーカーの遅延は未検証。既存の静的配信・DNS・保存形式は維持。成果物は /workspace/artifacts/usotuki/handkerchief-relative-clock/ 。
+
+
+## v1.5 開始前の3秒カウントダウン
+
+開始操作で3・2・1を表示し、その締切を計測と経過音の0秒とする。取り消し・非表示・離脱なら開始せず待機へ戻す。開始前の判定やペナルティは作らない。
+
+source: d5db383076de582e8b545098634d715c4b159cfb
+build: 6cf0c3b7dd1f35bd42c3e9f7a3e5938bbc62e32b
+deployment: 66b6edcf95134419990f13d2fa49ce98
+
+型・Lint・ビルド・単体46件成功。公開URLの全19件成功（約1.1分）。3秒の境界、取消、非表示、連続ターン、保存競合、音の起算を含む。静的16ファイル一致。配信・DNS・保存形式は維持。画面下部のv1.5で確認。成果物は /workspace/artifacts/usotuki/handkerchief-countdown/ 。Android実機の描画・スピーカー遅延は未検証。
