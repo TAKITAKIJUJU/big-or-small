@@ -84,3 +84,16 @@ Service WorkerにはskipWaitingを入れない。更新データの取得後、�
 - 単体44件成功。公開URLの全15件のブラウザ検査が成功（40.8秒）。3ターン連続の時報と読み上げ、音声機能を閉じた後の2ターン目の復帰も含む。
 
 全タブとPWAを閉じて開き直し、画面下部のv1.3で確認する。計測中の強制再読込は行わない。配信用ZIP・女性音声サンプル・画面・照合JSONは /workspace/artifacts/usotuki/handkerchief-ten-second-voice/ 。ユーザーの実機で起きた停止原因そのものとスピーカーでの聴取は未確認。
+
+## v1.3.1 ホームでの自動再生を停止
+
+2026-11-15、同じ https://usotuki.app/ へ公開。自動時報を対戦画面だけに限定し、画面移動で再生中・予約中の音声を停止。ホーム・設定・準備・履歴の音は明示した試聴だけ。途中で取り消した試聴の遅れた再生完了・拒否が、合成音を再開させないようにした。
+
+- source：aef2b7eb25984b60d154a785b1db090f55dab65f
+- build：399d0bbe26230b6a5efdf8950be3bc72a8692214
+- deployment：4b34e5e3ca5f4d108287aa3a4372236d
+- 前版：3c323445b33b431c87e3f4c2568e96bf
+- 静的16ファイルがビルドと一致。assets-only、bindingsなし、DNS変更なし。
+- 単体45件成功。公開URLで全17件成功（46.9秒）。Web Audio・HTML Audioそれぞれのホーム無音、試聴停止、対戦への復帰と連続3ターンを含む。
+
+更新は試合の合間にページを再読込し、全タブ・PWAを閉じて開き直す。画面下部のv1.3.1で確認。計測中の強制再読込や保存データの削除は行わない。成果物は /workspace/artifacts/usotuki/handkerchief-home-audio-fix/ 。
