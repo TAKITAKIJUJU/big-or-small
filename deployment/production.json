@@ -1,27 +1,27 @@
 {
   "product": "USOTUKI ハンカチ落とし計時器",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "url": "https://usotuki.app/",
   "worker": "usotuki",
-  "sourceCommit": "aef2b7eb25984b60d154a785b1db090f55dab65f",
-  "buildCommit": "399d0bbe26230b6a5efdf8950be3bc72a8692214",
-  "deploymentId": "4b34e5e3ca5f4d108287aa3a4372236d",
-  "previousDeploymentId": "3c323445b33b431c87e3f4c2568e96bf",
+  "sourceCommit": "188d9361db5183a0ae442cc419c4bc7cb708b3ad",
+  "buildCommit": "e11f443c0dfa00a5afafa70f2c5cf3c40f1eb153",
+  "deploymentId": "76023b96b4a44127b58dbc4ab7e9cd4c",
+  "previousDeploymentId": "4b34e5e3ca5f4d108287aa3a4372236d",
   "previousProductDeploymentId": "263e9a79915e452592e119ad79af400f",
-  "updatedAt": "2026-11-15T17:40:30.739514+00:00",
+  "updatedAt": "2026-11-15T17:52:50.286768+00:00",
   "compatibilityDate": "2026-11-14",
   "assetsOnly": true,
   "runWorkerFirst": false,
   "workerCacheEnabled": false,
   "bindings": [],
   "manifest": {
-    "/assets/index-B_8KoreB.js": {
-      "hash": "5f9113835da22d20ee6dc20d1e03faba",
-      "size": 277307
-    },
     "/assets/index-D-O8FZy1.css": {
       "hash": "c90d9da3b96b55656723d0d4179e8f7e",
       "size": 15991
+    },
+    "/assets/index-S3GeTl8k.js": {
+      "hash": "3b064d4503f94c45ad07f045f61748d1",
+      "size": 277515
     },
     "/audio-attribution.txt": {
       "hash": "79c3a74c5c88b240e592de8665b3833a",
@@ -44,7 +44,7 @@
       "size": 3843
     },
     "/index.html": {
-      "hash": "468aec4e1e14dd74b18614f701478000",
+      "hash": "e60d71607a6ad69f1f2e11879aa70470",
       "size": 920
     },
     "/licenses.txt": {
@@ -60,7 +60,7 @@
       "size": 6218
     },
     "/signal-preview-voice.mp3": {
-      "hash": "d27b6d7587ab7b21b3e04ef87256f40d",
+      "hash": "630dae81f664aebbcc72b71887949419",
       "size": 92829
     },
     "/signal-preview.wav": {
@@ -68,7 +68,7 @@
       "size": 507194
     },
     "/sw.js": {
-      "hash": "4b507b130abe5c30a6fb428bcd60d4bf",
+      "hash": "173a70c7872b4611cf4fc78746015dc3",
       "size": 1965
     },
     "/tick.wav": {
@@ -76,8 +76,8 @@
       "size": 1586
     },
     "/time-voice.mp3": {
-      "hash": "f1495e906e86e2434a7ae781c0a19240",
-      "size": 642655
+      "hash": "5a1c038ccf0a2e10d901dda396ceebe3",
+      "size": 653940
     }
   },
   "rulesVersion": "handkerchief-1",
@@ -91,8 +91,8 @@
   "archiveBranch": "codex/archive-air-poker-wip-20261115",
   "verification": {
     "unitTests": 45,
-    "productionBrowserTests": 17,
-    "productionBrowserSeconds": 46.9,
+    "productionBrowserTests": 18,
+    "productionBrowserSeconds": 49.8,
     "productionFilesMatch": 16,
     "consecutiveAudioTurns": 3,
     "closedAudioContextRecoveryTested": true,
@@ -100,9 +100,10 @@
     "physicalSpeakerTested": false,
     "reportedDeviceStopCauseIdentified": false,
     "homeSilenceTested": true,
-    "previewCancellationTested": true
+    "previewCancellationTested": true,
+    "wallClockChangeTested": true
   },
-  "previousVerifiedDeploymentId": "3c323445b33b431c87e3f4c2568e96bf",
+  "previousVerifiedDeploymentId": "4b34e5e3ca5f4d108287aa3a4372236d",
   "audio": {
     "profile": "time-signal",
     "secondTicks": true,
@@ -113,12 +114,12 @@
     ],
     "minuteBell": 0,
     "spokenTargets": [
-      0,
       10,
       20,
       30,
       40,
-      50
+      50,
+      60
     ],
     "voice": "bundled MMDAgent Mei (normal), CC BY 3.0",
     "htmlVoiceSource": "local Blob, metadata ready before seek",
@@ -129,6 +130,9 @@
       "match"
     ],
     "stopOnNavigation": true,
-    "cancelledPreviewCannotRestart": true
+    "cancelledPreviewCannotRestart": true,
+    "clock": "performance.now, same origin as TurnClock",
+    "resetEachTurn": true,
+    "stopAfterEarlyFinish": true
   }
 }
