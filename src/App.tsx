@@ -1,1134 +1,811 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
-import { actionText, type BetAction, type PlayerView } from "./game/engine";
-import { ANTES } from "./game/stakes";
-import { REASON_TEXT, type BotLog } from "./game/bot";
-import { useGame } from "./lib/useGame";
-import { unlockAudio } from "./lib/audio";
-import type { Settings } from "./lib/session";
+import { useEffect, useMemo, useState } from "react";
+import { useInstrument } from "./application/useInstrument";
+import {
+  derive,
+  other,
+  REASONS,
+  seconds,
+  total,
+  type Person,
+} from "./domain/game";
+import { localVoice } from "./audio/chime";
+import { download, exportCSV, exportJSON, removeMatch } from "./storage/db";
+import {
+  Chart,
+  History,
+  Rules,
+  ScoreCard,
+  Timer,
+  TurnDetail,
+} from "./ui/components";
 import "./style.css";
-const TableScene = lazy(() => import("./scene/TableScene"));
-export const GAME_NAME = "USOTUKI";
-const DIFFICULTY = { easy: "初級", medium: "中級", hard: "上級" };
-type ModalName = "settings" | "rules" | "history" | "new" | null;
-function Icon({
-  kind,
-  muted = false,
-}: {
-  kind: "settings" | "sound" | "history";
-  muted?: boolean;
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {kind === "settings" ? (
-        <>
-          <circle cx="12" cy="12" r="7" />
-          <circle cx="12" cy="12" r="2.5" />
-          <path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2" />
-        </>
-      ) : kind === "history" ? (
-        <>
-          <path d="M8 6h13M8 12h13M8 18h13" />
-          <path d="M3 6h.1M3 12h.1M3 18h.1" />
-        </>
-      ) : (
-        <>
-          <path d="M3 9h4l5-4v14l-5-4H3Z" />
-          {muted ? (
-            <path d="m17 9 5 6m0-6-5 6" />
-          ) : (
-            <path d="M16 8q4 4 0 8m3-11q7 7 0 14" />
-          )}
-        </>
-      )}
-    </svg>
-  );
-}
-function Modal({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: ReactNode;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
+type Page =
+  | "home"
+  | "setup"
+  | "match"
+  | "history"
+  | "past"
+  | "rules"
+  | "settings";
+export default function App() {
+  const app = useInstrument(),
+    [page, setPage] = useState<Page>("home"),
+    [nameA, setNameA] = useState(""),
+    [nameB, setNameB] = useState(""),
+    [first, setFirst] = useState<Person>("A"),
+    [dialog, setDialog] = useState<"void" | "delete" | null>(null),
+    [reason, setReason] = useState(""),
+    [agreed, setAgreed] = useState(false),
+    [offline, setOffline] = useState(!navigator.onLine),
+    [offlineReady, setOfflineReady] = useState(
+      !!navigator.serviceWorker?.controller,
+    ),
+    [installPrompt, setInstallPrompt] = useState<
+      (Event & { prompt?: () => Promise<void> }) | null
+    >(null),
+    [voiceAvailable, setVoiceAvailable] = useState(!!localVoice());
+  const m = app.current,
+    d = useMemo(() => (m ? derive(m) : null), [m]),
+    last = d?.turns.at(-1),
+    running = app.running;
+  const setNotice = app.setNotice;
   useEffect(() => {
-    const d = ref.current;
-    d?.showModal();
-    return () => d?.close();
-  }, []);
+    const status = () => setOffline(!navigator.onLine),
+      install = (e: Event) => {
+        e.preventDefault();
+        setInstallPrompt(e);
+      },
+      voices = () => setVoiceAvailable(!!localVoice());
+    const offlineFailure = () =>
+      setNotice(
+        "オフライン準備に失敗しました。試合の合間にオンラインで再読込してください",
+      );
+    window.addEventListener("offline-unavailable", offlineFailure);
+    void navigator.serviceWorker?.ready.then(() => setOfflineReady(true));
+    window.addEventListener("online", status);
+    window.addEventListener("offline", status);
+    window.addEventListener("beforeinstallprompt", install);
+    if ("speechSynthesis" in window)
+      speechSynthesis.addEventListener("voiceschanged", voices);
+    return () => {
+      window.removeEventListener("offline-unavailable", offlineFailure);
+      window.removeEventListener("online", status);
+      window.removeEventListener("offline", status);
+      window.removeEventListener("beforeinstallprompt", install);
+      if ("speechSynthesis" in window)
+        speechSynthesis.removeEventListener("voiceschanged", voices);
+    };
+  }, [setNotice]);
+  function go(next: Page) {
+    if (!running) setPage(next);
+  }
+  async function confirmed() {
+    if (!m) return;
+    try {
+      if (dialog === "void") app.invalidate(reason);
+      else {
+        await removeMatch(m.id);
+        app.forget(m.id);
+        setPage("past");
+      }
+      setDialog(null);
+      setReason("");
+      setAgreed(false);
+    } catch (e) {
+      app.setNotice(
+        e instanceof Error ? e.message : "記録を変更できませんでした",
+      );
+    }
+  }
+  useEffect(() => {
+    if (!dialog) return;
+    const previous = document.activeElement as HTMLElement | null,
+      modal = document.querySelector<HTMLElement>("[role=dialog]");
+    const elements = () => [
+      ...(modal?.querySelectorAll<HTMLElement>(
+        "button:not(:disabled),input,textarea",
+      ) ?? []),
+    ];
+    elements()[0]?.focus();
+    const keys = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDialog(null);
+      if (e.key === "Tab") {
+        const list = elements(),
+          first = list[0],
+          last = list.at(-1);
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", keys);
+    return () => {
+      window.removeEventListener("keydown", keys);
+      previous?.focus();
+    };
+  }, [dialog]);
+  const record = (kind: "drop" | "check") => app.clock.input(kind);
   return (
-    <dialog
-      ref={ref}
-      onCancel={onClose}
-      onClick={(e) => {
-        if (e.target === ref.current) onClose();
-      }}
-      className="dialog"
+    <div
+      className={`instrument ${app.settings.reduced ? "reduce-motion" : ""}`}
     >
-      <div className="dialog-head">
-        <span className="eyebrow">USOTUKI</span>
-        <button className="icon-button" aria-label="閉じる" onClick={onClose}>
-          ×
+      <header className="app-header" inert={!!dialog}>
+        <button className="brand" disabled={running} onClick={() => go("home")}>
+          <span className="brand-symbol">⌁</span>
+          <span>
+            USOTUKI<small>ハンカチ落とし 計時器</small>
+          </span>
         </button>
-      </div>
-      <h2>{title}</h2>
-      {children}
-      <button className="button outline full" onClick={onClose}>
-        戻る
-      </button>
-    </dialog>
-  );
-}
-function Rules() {
-  return (
-    <div className="prose">
-      <p>
-        13枚を一度ずつ使い、最後に多くのチップを残した方の勝ちです。参加料はラウンドごとに上がります。追加ベットは最初から、双方が払える有効スタックまで。
-      </p>
-      <ol>
-        <li>
-          双方が参加料を出します。支払った分はポットに入り、勝者が受け取ります。
-        </li>
-        <li>BIG／SMALLを公開してからカードを1枚ずつ伏せて確定。NPCも同じ条件で選びます。</li>
-        <li>
-          BIGなら大きい数字、SMALLなら小さい数字が勝ち。毎回50%ずつの独立抽選です。
-        </li>
-        <li>
-          双方の選札後に賭ける額を決めます。双方チェック、またはコールでカードを公開。
-        </li>
-        <li>降りたらポットを譲り、両方のカードを非公開で使い終えます。</li>
-      </ol>
-      <table className="stakes-table" aria-label="参加料と追加上限">
-        <thead>
-          <tr>
-            <th>回</th>
-            <th>参加料 / 人</th>
-            <th>追加上限 / 人</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ANTES.map((fee, i) => (
-            <tr key={i}>
-              <td>{i + 1}</td>
-              <td>{fee}</td>
-              <td>有効スタック</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p>
-        参加料に足りない場合は、少ない側の残額を双方が出して最後の勝負に参加します。参加料だけで全額になったら、抽選・選札後に自動で公開します。どちらかの所持チップが0になるか、13回で終了です。
-      </p>
-      <dl>
-        <dt>チェック</dt>
-        <dd>追加で賭けずに手番を渡す。</dd>
-        <dt>ベット</dt>
-        <dd>追加でチップを賭け始める。</dd>
-        <dt>コール</dt>
-        <dd>相手と同じ合計額まで出す。</dd>
-        <dt>レイズ</dt>
-        <dd>相手の額に上乗せする。双方で合計2回まで。</dd>
-        <dt>フォールド</dt>
-        <dd>降りてポットを譲る。カードは非公開。</dd>
-      </dl>
-      <p>
-        追加額は原則2刻み。相手が払える額が上限です。残額の端数だけ例外で、受けられなかった差額は返します。同数なら追加ベットは双方へ全額返還。参加料と以前の持越分を次へ残します。最終回や、返還後もどちらかが参加できない場合は折半します。
-      </p>
-      <p>
-        全ラウンドで有効スタックまで賭けられます。「最大」は額を選ぶ操作で、ベット／レイズを押すまでチップは出ません。
-      </p>
-      <small>
-        以前の保存試合は当時の抽選順・上限・同数時の精算を維持します。新しい対戦から新ルールを適用します。チップはゲーム内だけの数値で、現実のお金・課金・換金・賞金はありません。
-      </small>
-    </div>
-  );
-}
-function SettingsPanel({
-  settings,
-  setSettings,
-  inMatch,
-}: {
-  settings: Settings;
-  setSettings: (s: Settings) => void;
-  inMatch: boolean;
-}) {
-  const update = <K extends keyof Settings>(key: K, value: Settings[K]) =>
-    setSettings({ ...settings, [key]: value });
-  return (
-    <div className="settings-grid">
-      <label>
-        NPCの難易度
-        <select
-          value={settings.difficulty}
-          onChange={(e) =>
-            update("difficulty", e.target.value as Settings["difficulty"])
-          }
+        <div className="header-status">
+          <i className={offline ? "offline" : ""} />
+          {offline ? "OFFLINE" : "LOCAL"}
+        </div>
+        <button
+          className="settings-button"
+          aria-label="設定"
+          disabled={running}
+          onClick={() => go("settings")}
         >
-          {Object.entries(DIFFICULTY).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-      </label>
-      <small className="strategy-help">
-        初級は読みやすく、中級は札の温存と駆け引き。上級はレイズの応酬まで読み、相手の降り方や見せたブラフに合わせて戦略を変えます。
-      </small>
-      <label>
-        演出の速度
-        <select
-          value={settings.speed}
-          onChange={(e) => update("speed", e.target.value as Settings["speed"])}
-        >
-          <option value="normal">標準</option>
-          <option value="fast">速い</option>
-          <option value="skip">演出を省略</option>
-        </select>
-      </label>
-      <label>
-        描画品質
-        <select
-          value={settings.quality}
-          onChange={(e) =>
-            update("quality", e.target.value as Settings["quality"])
-          }
-        >
-          <option value="auto">自動</option>
-          <option value="high">高</option>
-          <option value="low">低・省電力</option>
-        </select>
-      </label>
-      <label className="toggle">
-        動きを軽減する
-        <input
-          type="checkbox"
-          checked={settings.reduced}
-          onChange={(e) => update("reduced", e.target.checked)}
-        />
-      </label>
-      <label className="toggle">
-        音をミュート
-        <input
-          type="checkbox"
-          checked={settings.muted}
-          onChange={(e) => update("muted", e.target.checked)}
-        />
-      </label>
-      <label>
-        音量 {Math.round(settings.volume * 100)}%
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.05"
-          value={settings.volume}
-          onChange={(e) => {
-            unlockAudio();
-            update("volume", Number(e.target.value));
-          }}
-        />
-      </label>
-      {inMatch && <small>以前の保存試合の上限は、対戦中には変更しません。</small>}
-      <small>新しい対戦は全ラウンドで有効スタックまで賭けられます。以前の保存試合は当時の上限を維持します。</small>
-      <label className="toggle">
-        試合終了後に全カードを開示
-        <input
-          type="checkbox"
-          checked={settings.reveal}
-          onChange={(e) => update("reveal", e.target.checked)}
-        />
-      </label>
-      <small>対戦中、フォールドされた相手の札は履歴にも表示されません。</small>
-    </div>
-  );
-}
-function History({
-  view,
-  botReview,
-}: {
-  view: PlayerView | null;
-  botReview: BotLog[];
-}) {
-  return (
-    <div className="history">
-      {!view?.history.length ? (
-        <p>まだ決着したラウンドはありません。</p>
-      ) : (
-        <>
-          <div className="history-header">
-            <span>回 / 判定</span>
-            <span>あなた</span>
-            <span>NPC</span>
-            <span>増減</span>
-          </div>
-          {view.history.map((r) => (
-            <div className="history-row" key={r.round}>
-              <span>
-                <b>{String(r.round).padStart(2, "0")}</b>{" "}
-                <small>
-                  {r.mode}
-                  <span className="history-fee">参加料 {r.ante}</span>
-                </small>
-              </span>
-              <span>{r.cards.human ?? "非公開"}</span>
-              <span>{r.cards.bot ?? "非公開"}</span>
-              <span className={r.delta.human > 0 ? "positive" : ""}>
-                {r.delta.human > 0 ? "+" : ""}
-                {r.delta.human}
-                <small>
-                  {r.reason === "fold"
-                    ? "フォールド"
-                    : r.winner === "tie"
-                      ? r.carried > 0 ? `${r.carried}持ち越し` : "引き分け"
-                      : "札を公開"}
-                </small>
-              </span>
-            </div>
-          ))}
-          {view.phase === "finished" && (
-            <div className="review">
-              <h3>対戦の振り返り</h3>
-              {view.history
-                .filter((r) => r.reason === "fold" && r.cards.bot !== null)
-                .map((r) => {
-                  const player = r.winner === "human";
-                  const winAtShowdown =
-                    r.cards.bot === r.cards.human
-                      ? "tie"
-                      : (
-                            r.mode === "BIG"
-                              ? r.cards.human! > r.cards.bot!
-                              : r.cards.human! < r.cards.bot!
-                          )
-                        ? "human"
-                        : "bot";
-                  return (
-                    <p key={r.round}>
-                      第{r.round}回：
-                      {winAtShowdown !== r.winner && winAtShowdown !== "tie"
-                        ? player
-                          ? "あなたのブラフが成功。"
-                          : "NPCのブラフが成功。"
-                        : "降りた札を振り返る。"}{" "}
-                      あなた {r.cards.human} / NPC {r.cards.bot}
-                    </p>
-                  );
-                })}
-              <small>公開後の札による振り返りです。</small>
-              {botReview.length > 0 && (
-                <section className="npc-analysis" aria-label="NPCの判断記録">
-                  <h3>NPCは何を狙っていたか</h3>
-                  <p>
-                    当時の公開情報からの推定です。読みが外れることもあります。
-                  </p>
-                  {view.history.map((round) => {
-                    const logs = botReview.filter(
-                      (log) => log.round === round.round,
-                    );
-                    return logs.length > 0 ? (
-                      <details key={round.round}>
-                        <summary>第{round.round}回の狙い</summary>
-                        {logs.map((log, i) => (
-                          <p key={i}>
-                            <span>
-                              {log.kind === "card" ? "札選び" : "賭け方"}
-                            </span>
-                            {REASON_TEXT[log.reason]}
-                          </p>
-                        ))}
-                      </details>
-                    ) : null;
-                  })}
-                </section>
-              )}
-            </div>
+          ⚙
+        </button>
+      </header>
+      {app.notice && (
+        <div className={`notice ${app.fault ? "error" : ""}`} role="status">
+          <span>{app.notice}</span>
+          {app.fault && (
+            <button onClick={() => void app.retry()}>保存を再試行</button>
           )}
-        </>
-      )}
-    </div>
-  );
-}
-function Betting({
-  view,
-  busy,
-  onAct,
-}: {
-  view: PlayerView;
-  busy: boolean;
-  onAct: (a: BetAction) => void;
-}) {
-  const [amount, setAmount] = useState(2);
-  const increases = view.legal.filter(
-    (a): a is Extract<BetAction, { total: number }> => "total" in a,
-  );
-  const amounts = increases.map((a) => a.total),
-    total = amounts.includes(amount) ? amount : (amounts[0] ?? 0);
-  const due = Math.max(0, view.contributions.bot - view.contributions.human),
-    selected = increases.find((a) => a.total === total);
-  return (
-    <>
-      <div className="bet-status">
-        <span>
-          自分の札 <b>{view.ownCard}</b> · 追加 {view.contributions.human}
-        </span>
-        <span>
-          NPC <b>{view.contributions.bot}</b> / 上限{" "}
-          {view.betLimit ?? "有効スタック"}
-        </span>
-      </div>
-      {increases.length > 0 && (
-        <div className="amount-control">
-          <button
-            aria-label="ベット総額を減らす"
-            disabled={busy || total === amounts[0]}
-            onClick={() =>
-              setAmount(amounts[Math.max(0, amounts.indexOf(total) - 1)])
-            }
-          >
-            −
-          </button>
-          <div>
-            <label htmlFor="bet-amount">
-              {selected?.type === "raise" ? "レイズ後の合計" : "ベット額"}{" "}
-              <b>{total}</b>
-            </label>
-            <input
-              id="bet-amount"
-              aria-label="追加拠出の合計額"
-              type="range"
-              min="0"
-              max={amounts.length - 1}
-              step="1"
-              value={amounts.indexOf(total)}
-              disabled={busy}
-              onChange={(e) => setAmount(amounts[Number(e.target.value)])}
-            />
-          </div>
-          <button
-            aria-label="ベット総額を増やす"
-            disabled={busy || total === amounts.at(-1)}
-            onClick={() =>
-              setAmount(
-                amounts[
-                  Math.min(amounts.length - 1, amounts.indexOf(total) + 1)
-                ],
-              )
-            }
-          >
-            ＋
-          </button>
         </div>
       )}
-      {increases.length > 0 && (
-        <>
-          <div className="bet-presets" role="group" aria-label="ベット額の候補">
-            {[
-              { label: "最小", value: amounts[0] },
-              {
-                label: "半分",
-                value: amounts[Math.floor((amounts.length - 1) / 2)],
-              },
-              {
-                label: total === amounts.at(-1) ? "最大を選択中" : "最大",
-                value: amounts.at(-1)!,
-              },
-            ].map((preset, i) => (
-              <button
-                key={i}
-                disabled={busy}
-                aria-pressed={total === preset.value}
-                onClick={() => setAmount(preset.value)}
-              >
-                {preset.label}
-                <b>{preset.value}</b>
-              </button>
-            ))}
-          </div>
-          <p className="stake-risk">
-            この額で双方が勝負したら{" "}
-            <b>
-              勝ち +{view.ante + total + view.carryPot} / 負け −{view.ante + total}
-            </b>
-            {view.ruleset === "open" && <small>同数は追加分を返還し、参加料は次回へ。最終回は折半。</small>}
-          </p>
-        </>
-      )}
-      <div className="action-buttons">
-        {view.legal.some((a) => a.type === "fold") && (
-          <button
-            className="button danger"
-            disabled={busy}
-            onClick={() => onAct({ type: "fold" })}
-          >
-            降りる<small>フォールド</small>
-          </button>
-        )}
-        {view.legal.some((a) => a.type === "check") && (
-          <button
-            className="button outline"
-            disabled={busy}
-            onClick={() => onAct({ type: "check" })}
-          >
-            チェック<small>追加 0</small>
-          </button>
-        )}
-        {view.legal.some((a) => a.type === "call") && (
-          <button
-            className="button outline"
-            disabled={busy}
-            onClick={() => onAct({ type: "call" })}
-          >
-            コール<small>追加 {due}</small>
-          </button>
-        )}
-        {selected && (
-          <button
-            className="button primary"
-            disabled={busy}
-            onClick={() => onAct(selected)}
-          >
-            {selected.type === "bet" ? "ベット" : "レイズ"}
-            <small>
-              追加 {total - view.contributions.human} → 合計 {total}
-            </small>
-          </button>
-        )}
-      </div>
-    </>
-  );
-}
-export default function App() {
-  const game = useGame(),
-    { view, settings, setSettings } = game;
-  const [screen, setScreen] = useState<"home" | "game">("home"),
-    [modal, setModal] = useState<ModalName>(null),
-    [candidate, setCandidate] = useState<number | null>(null),
-    [snap, setSnap] = useState(0),
-    [fallback, setFallback] = useState(false),
-    [tutorial, setTutorial] = useState(false),
-    [tutorialRequest, setTutorialRequest] = useState(false),
-    [reducedOS, setReducedOS] = useState(false),
-    [landscape, setLandscape] = useState(false);
-  const revision = view?.revision ?? -1;
-  const autoStep =
-    view &&
-    (view.phase === "drawing" ||
-      (view.phase === "selecting" && !view.opponentCommitted) ||
-      (view.phase === "betting" && view.turn === "bot"));
-  const stepRef = useRef(game.step);
-  stepRef.current = game.step;
-  const cancelBotRef = useRef(game.cancelBot);
-  cancelBotRef.current = game.cancelBot;
-  const revealRef = useRef(game.completeReveal);
-  revealRef.current = game.completeReveal;
-  useEffect(() => {
-    const q = matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReducedOS(q.matches);
-    update();
-    q.addEventListener("change", update);
-    return () => q.removeEventListener("change", update);
-  }, []);
-  useEffect(() => {
-    const query = matchMedia(
-      "(orientation: landscape) and (max-height: 600px) and (pointer: coarse)",
-    );
-    const update = () => setLandscape(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-  useEffect(() => {
-    if (landscape) setModal(null);
-  }, [landscape]);
-  useEffect(() => {
-    if (
-      screen !== "game" ||
-      modal ||
-      landscape ||
-      (!autoStep && !game.revealPending)
-    )
-      return;
-    const delay =
-      settings.reduced || reducedOS || settings.speed === "skip"
-        ? 80
-        : settings.speed === "fast"
-          ? 250
-          : game.revealPending
-            ? 1300
-            : view?.phase === "drawing"
-              ? 0
-              : 850;
-    const t = setTimeout(
-      () =>
-        game.revealPending ? revealRef.current() : stepRef.current(revision),
-      delay,
-    );
-    return () => {
-      clearTimeout(t);
-      cancelBotRef.current();
-    };
-  }, [
-    revision,
-    screen,
-    modal,
-    autoStep,
-    settings.speed,
-    settings.reduced,
-    reducedOS,
-    view?.phase,
-    game.revealPending,
-    landscape,
-  ]);
-  function start(forceTutorial = false) {
-    unlockAudio();
-    game.newGame(settings);
-    setScreen("game");
-    setCandidate(null);
-    setModal(null);
-    setTutorial(forceTutorial || !settings.tutorialSeen);
-  }
-  function closeTutorial() {
-    setTutorial(false);
-    setSettings({ ...settings, tutorialSeen: true });
-  }
-  const inMatch = !!view && view.phase !== "finished";
-  const last = view?.history.at(-1);
-  const chosen =
-    candidate !== null &&
-    view?.hand.includes(candidate) &&
-    view.ownCard === null;
-  const status = !view
-    ? ""
-    : game.revealPending
-      ? "BIG / SMALL を抽選中"
-      : view.phase === "selecting"
-        ? "カードを1枚選ぶ"
-        : view.phase === "drawing"
-          ? "カードを確定しました"
-          : view.phase === "betting"
-            ? view.turn === "human"
-              ? "あなたの手番"
-              : "NPCが考えています…"
-            : view.phase === "resolved"
-              ? last?.winner === "tie"
-                ? last.carried > 0 ? `${last.carried}を次回へ持ち越し` : "このラウンドは引き分け"
-                : last?.winner === "human"
-                  ? "このラウンドはあなたの勝ち"
-                  : "このラウンドはNPCの勝ち"
-              : "対戦終了";
-  const tutorialText =
-    view?.phase === "selecting"
-      ? `${view.mode ?? "公開された条件"}を見て数字を選び、カードを伏せます。選んだカードは一度だけ使えます。`
-      : view?.phase === "drawing"
-        ? "BIGは大きい数字、SMALLは小さい数字の勝ちです。"
-        : view?.phase === "betting"
-          ? "チェックは追加なし。相手が賭けたら、同額を出すか、増やすか、降りるかを選びます。"
-          : "公開されたカードで勝敗を判定します。降りたときは両方のカードを伏せたまま使い終えます。";
-  return (
-    <>
-      <main
-        inert={landscape}
-        className={`app ${screen === "home" ? "is-home" : ""} ${settings.reduced || reducedOS ? "reduce-motion" : ""}`}
-      >
-        <Suspense fallback={<div className="scene-loading">読み込み中…</div>}>
-          <TableScene
-            view={view}
-            candidate={candidate}
-            onSelect={(n) => {
-              if (!modal && !game.busy && !game.revealPending) {
-                unlockAudio();
-                setCandidate(n);
-              }
-            }}
-            settings={{ ...settings, reduced: settings.reduced || reducedOS }}
-            home={screen === "home"}
-            snap={snap}
-            paused={landscape}
-            onFallback={() => setFallback(true)}
-          />
-        </Suspense>
-        {screen === "home" ? (
-          <>
-            <header className="home-header">
-              <a href="#" className="wordmark" aria-label="USOTUKI ホーム">
-                USOTUKI
-              </a>
-
-              <button
-                className="icon-button"
-                aria-label="設定"
-                onClick={() => setModal("settings")}
-              >
-                <Icon kind="settings" />
-              </button>
-            </header>
-            <section className="home-title">
-              <span className="eyebrow">BIG or SMALL</span>
-              <h1>{GAME_NAME}</h1>
-              <p>一枚選んで、相手の判断を読む。</p>
-            </section>
-            <section className="home-menu">
-              <div className="menu-note">参加料 2 → 80 · 13ラウンド</div>
-              {inMatch && (
-                <button
-                  className="button primary full"
-                  onClick={() => {
-                    unlockAudio();
-                    setScreen("game");
-                  }}
-                >
-                  対戦を再開<span>第 {view?.round} 回 →</span>
-                </button>
-              )}
-              <button
-                className={`button ${inMatch ? "outline" : "primary"} full`}
-                onClick={() => {
-                  setTutorialRequest(false);
-                  if (inMatch) setModal("new");
-                  else start();
-                }}
-              >
-                {inMatch ? "新しい対戦" : "対戦をはじめる"}
-                <span>{DIFFICULTY[settings.difficulty]} →</span>
-              </button>
-              <div className="home-links">
-                <button onClick={() => setModal("rules")}>遊び方</button>
-                <span>/</span>
-                <button
-                  onClick={() => {
-                    setTutorialRequest(true);
-                    if (inMatch) setModal("new");
-                    else start(true);
-                  }}
-                >
-                  実践チュートリアル
-                </button>
-              </div>
-              {view?.phase === "finished" && (
-                <button
-                  className="previous-review"
-                  onClick={() => setModal("history")}
-                >
-                  前の対戦を振り返る
-                </button>
-              )}
-              <div className="home-foot">
-                <span>1人プレイ</span>
-                <span>設定は対戦中も変更できます</span>
-              </div>
-            </section>
-          </>
-        ) : (
-          view && (
+      {!app.ready ? (
+        <main className="loading">端末内の記録を確認しています…</main>
+      ) : (
+        <main inert={!!dialog}>
+          {page === "home" && (
             <>
-              <header className="game-header">
-                <button
-                  className="mini-logo"
-                  aria-label="ホームへ戻る"
-                  onClick={() => setScreen("home")}
-                >
-                  <span className="back-arrow">←</span>
-                </button>
-                <div className="round-counter">
-                  <span>ラウンド</span>
+              <section className="hero">
+                <div className="eyebrow">TWO PLAYERS · ONE INSTRUMENT</div>
+                <h1>
+                  振り向く、
+                  <br />
+                  <em>その際を測る。</em>
+                </h1>
+                <p>
+                  ハンカチと椅子、スマホ1台。
+                  <br />
+                  実物で遊ぶ2人の心理戦を、正確に記録する。
+                </p>
+                <div className="home-dial">
+                  <span>LIMIT</span>
                   <strong>
-                    {String(view.round).padStart(2, "0")}
-                    <small> / 13</small>
+                    300<small>s</small>
                   </strong>
+                  <i>蓄積 ＋ 消化済み</i>
                 </div>
-                <div className="header-actions">
-                  <button
-                    className="icon-button"
-                    aria-label={settings.muted ? "音をオン" : "音をミュート"}
-                    onClick={() => {
-                      unlockAudio();
-                      setSettings({ ...settings, muted: !settings.muted });
-                    }}
-                  >
-                    <Icon kind="sound" muted={settings.muted} />
-                  </button>
-                  <button
-                    className="icon-button"
-                    aria-label="対戦履歴"
-                    onClick={() => setModal("history")}
-                  >
-                    <Icon kind="history" />
-                  </button>
-                  <button
-                    className="icon-button"
-                    aria-label="設定"
-                    onClick={() => setModal("settings")}
-                  >
-                    <Icon kind="settings" />
-                  </button>
-                </div>
-              </header>
-              <div className="scoreboard">
-                <div>
-                  <span>あなた</span>
-                  <b>{view.chips.human}</b>
-                </div>
-                <div className="pot">
-                  <span>ポット</span>
-                  <b>{view.pot}</b>
-                </div>
-                <div className="opponent-score">
-                  <span>NPC · {DIFFICULTY[settings.difficulty]}</span>
-                  <b>{view.chips.bot}</b>
-                </div>
-              </div>
-              <div className="table-caption">
-                <span
-                  className={`mode-badge ${game.revealPending ? "drawing" : ""}`}
-                >
-                  {view.mode ??
-                    (view.phase === "drawing" ? "抽選中" : "BIG / SMALL")}
-                  {view.mode && (
-                    <small>
-                      {view.mode === "BIG" ? "大きい数字" : "小さい数字"}
-                    </small>
-                  )}
-                </span>
-                <span className="ante-status">
-                  参加料 <b>{view.ante}</b>
-                  {view.carryPot > 0 && <small>持越 {view.carryPot}</small>}
-                  {view.nextScheduledAnte !== null && (
-                    <> → 次 {view.nextScheduledAnte}</>
-                  )}
-                  {view.ante < view.scheduledAnte && (
-                    <small>規定 {view.scheduledAnte} · 残額で参加</small>
-                  )}
-                </span>
-              </div>
-              <div
-                className="scene-tools"
-                hidden={
-                  view.phase === "betting" &&
-                  view.turn === "human" &&
-                  !game.revealPending
-                }
-              >
-                <span>
-                  {fallback ? "軽量表示 · " : ""}
-                  {view.ruleset !== "open" ? "旧ルール · " : ""}追加上限{" "}
-                  {view.betLimit ?? "有効スタック"}
-                </span>
+              </section>
+              <section className="home-actions">
                 <button
-                  onClick={() => {
-                    setSnap((n) => n + 1);
-                    if (game.revealPending) game.completeReveal();
-                    else if (autoStep && !modal) game.step(revision);
-                  }}
+                  className="primary"
+                  disabled={app.fault}
+                  onClick={() => go("setup")}
                 >
-                  スキップ →
+                  新しい試合 <span>→</span>
                 </button>
-              </div>
-              <section
-                className={`control-panel ${view.phase === "finished" ? "end-panel" : ""}`}
-                aria-label="対戦操作"
-              >
-                {view.ruleset !== "open" && (
-                  <p className="legacy-note">
-                    以前のルールで再開中。新しい対戦から抽選先行・同数持ち越しになります。
-                  </p>
+                {m && !d?.loser && (
+                  <button className="secondary" onClick={() => go("match")}>
+                    試合の続き{" "}
+                    <span>第 {(d?.turns.length ?? 0) + 1} ターン</span>
+                  </button>
                 )}
-                {tutorial && (
-                  <div className="tutorial">
-                    <p>{tutorialText}</p>
-                    <button
-                      onClick={closeTutorial}
-                      aria-label="チュートリアルを終了"
-                    >
-                      スキップ ×
-                    </button>
-                  </div>
-                )}
-                <div className="panel-heading">
-                  <h2 aria-live="polite">{status}</h2>
-                  <button
-                    className="help"
-                    onClick={() => setModal("rules")}
-                    aria-label="ルールを読む"
-                  >
-                    ?
+                <div className="menu-grid">
+                  <button onClick={() => go("past")}>
+                    過去の試合 <small>{app.matches.length} 件</small>
+                  </button>
+                  <button onClick={() => go("rules")}>
+                    ルール <small>はじめての方へ</small>
                   </button>
                 </div>
-                {view.phase === "selecting" && !game.revealPending && (
-                  <>
-                    <div className="hand-label">
-                      <span>
-                        残りのカード <small>{view.hand.length} 枚</small>
-                      </span>
-                      <span>
-                        {chosen ? `選択中：${candidate}` : "横にスクロール"}
-                      </span>
-                    </div>
-                    <div
-                      className="hand-strip"
-                      role="group"
-                      aria-label="あなたの手札"
-                    >
-                      {view.hand.map((c) => (
-                        <button
-                          key={c}
-                          aria-label={`カード${c}を選択`}
-                          aria-pressed={candidate === c}
-                          disabled={
-                            view.ownCard !== null || game.busy || !!modal
-                          }
-                          onClick={() => {
-                            unlockAudio();
-                            setCandidate(c);
-                          }}
-                        >
-                          {c}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      className="button primary full commit"
-                      disabled={!chosen || game.busy || !!modal}
-                      onClick={() => {
-                        unlockAudio();
-                        if (chosen)
-                          game.humanCommand({
-                            type: "select",
-                            player: "human",
-                            card: candidate!,
-                          });
-                      }}
-                    >
-                      {chosen
-                        ? `${candidate} の札を伏せる`
-                        : "一枚、選んでください"}
-                      <span>確定後は変更できません</span>
-                    </button>
-                  </>
+                {installPrompt && (
+                  <button
+                    className="text-button"
+                    onClick={() => void installPrompt.prompt?.()}
+                  >
+                    ホーム画面に追加
+                  </button>
                 )}
-                {(view.phase === "drawing" || game.revealPending) && (
-                  <div className="waiting">
-                    <span className="spinner" />
-                    <p>
-                      BIG / SMALL は毎回 50% / 50%
-                      <small>{view.ruleset === "open" ? "公開された条件を見て、次に札を選びます" : `あなたの札：${view.ownCard} · 確定済み`}</small>
-                    </p>
-                  </div>
-                )}
-                {view.phase === "betting" &&
-                  !game.revealPending &&
-                  (view.turn === "human" ? (
-                    <Betting
-                      key={view.round}
-                      view={view}
-                      busy={game.busy || !!modal}
-                      onAct={(a) => {
-                        unlockAudio();
-                        game.humanCommand({
-                          type: "act",
-                          player: "human",
-                          action: a,
-                        });
-                      }}
-                    />
-                  ) : (
-                    <div className="waiting">
-                      <span className="spinner" />
-                      <p>
-                        NPCの手番
-                        <small>
-                          あなたの札：{view.ownCard} / {view.mode} / 追加拠出：
-                          {view.contributions.human}
-                        </small>
-                      </p>
-                    </div>
-                  ))}
-                {view.phase === "resolved" && !game.revealPending && last && (
-                  <>
-                    {view.chips.human - last.delta.human <
-                      view.chips.bot - last.delta.bot &&
-                      view.chips.human > view.chips.bot && (
-                        <p className="comeback-label">この勝負で逆転</p>
-                      )}
-                    <div className="round-result">
-                      <div>
-                        <span>
-                          {last.reason === "fold"
-                            ? "フォールドで決着"
-                            : `あなた ${last.cards.human} / NPC ${last.cards.bot}`}
-                        </span>
-                        <small>
-                          {last.reason === "fold"
-                            ? "両者の札を非公開で廃棄"
-                            : "両者の札を公開"}{" "}
-                          · ポット {last.pot}{last.carried > 0 ? ` / 持ち越し ${last.carried}` : ""}
-                          {last.refunded.human > 0
-                            ? ` / ${last.refunded.human}を返還`
-                            : ""}
-                        </small>
-                      </div>
-                      <b className={last.delta.human > 0 ? "positive" : ""}>
-                        {last.delta.human > 0 ? "+" : ""}
-                        {last.delta.human}
-                      </b>
-                    </div>
-                    <button
-                      className="button primary full"
-                      disabled={game.busy || !!modal}
-                      onClick={() => {
-                        setCandidate(null);
-                        game.humanCommand({ type: "next" });
-                        if (tutorial) closeTutorial();
-                      }}
-                    >
-                      {!view.canContinue ? "対戦の結果へ" : "次のラウンド"}
-                      <span>
-                        {view.canContinue
-                          ? `次は参加料 ${view.nextAnte}${view.nextAnte !== view.nextScheduledAnte ? `（規定${view.nextScheduledAnte}）` : ""} →`
-                          : "結果へ →"}
-                      </span>
-                    </button>
-                  </>
-                )}
-                {view.phase === "finished" && (
-                  <>
-                    <div className="final-result">
-                      <h3>
-                        {view.winner === "tie"
-                          ? "引き分け"
-                          : view.winner === "human"
-                            ? "あなたの勝利"
-                            : "NPCの勝利"}
-                      </h3>
-                      <p>
-                        {view.history.length}ラウンド終了 · あなた{" "}
-                        {view.chips.human} / NPC {view.chips.bot}
-                      </p>
-                      <small>
-                        {view.history.length < 13
-                          ? view.ruleset === "classic"
-                            ? "次の参加料を払えないため対戦終了"
-                            : "所持チップが0になったため対戦終了"
-                          : "すべてのカードを使い終えました。"}
-                      </small>
-                    </div>
-                    <div className="action-buttons">
-                      <button
-                        className="button outline"
-                        onClick={() => setModal("history")}
-                      >
-                        対戦を振り返る
-                      </button>
-                      <button
-                        className="button primary"
-                        onClick={() => start()}
-                      >
-                        もう一度対戦する
-                      </button>
-                    </div>
-                  </>
-                )}
-                {view.actions.length > 0 && view.phase === "betting" && (
-                  <p className="last-action" aria-live="polite">
-                    {view.actions.at(-1)?.player === "bot" ? "NPC" : "あなた"}：
-                    {actionText(
-                      view.actions.at(-1)!.action,
-                      view.actions.at(-1)!.paid,
-                    )}
-                    <span>あなたの札 {view.ownCard}</span>
-                  </p>
-                )}
+                <p className="footnote">
+                  記録はこの端末だけに保存。ログイン・対戦中の通信は不要です。
+                </p>
               </section>
             </>
-          )
-        )}
-        {game.notice && (
-          <div className="notice" role="status">
-            <span>{game.notice}</span>
-            <button
-              aria-label="通知を閉じる"
-              onClick={() => game.setNotice("")}
-            >
-              ×
-            </button>
-          </div>
-        )}
-        {modal && (
-          <Modal
-            title={
-              modal === "settings"
-                ? "設定"
-                : modal === "rules"
-                  ? "ルール"
-                  : modal === "history"
-                    ? "対戦の記録"
-                    : "新しい対戦を始める"
-            }
-            onClose={() => setModal(null)}
-          >
-            {modal === "settings" ? (
-              <>
-                <SettingsPanel
-                  settings={settings}
-                  setSettings={setSettings}
-                  inMatch={inMatch}
+          )}
+          {page === "setup" && (
+            <>
+              <PageHeading
+                kicker="PREPARATION"
+                title="試合の準備"
+                back={() => go("home")}
+              />
+              <form
+                className="form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  app.newGame({ A: nameA, B: nameB }, first);
+                  go("match");
+                }}
+              >
+                <label>
+                  プレイヤーA
+                  <input
+                    aria-label="プレイヤーAの名前"
+                    value={nameA}
+                    maxLength={24}
+                    placeholder="A"
+                    onChange={(e) => setNameA(e.target.value)}
+                  />
+                </label>
+                <label>
+                  プレイヤーB
+                  <input
+                    aria-label="プレイヤーBの名前"
+                    value={nameB}
+                    maxLength={24}
+                    placeholder="B"
+                    onChange={(e) => setNameB(e.target.value)}
+                  />
+                </label>
+                <fieldset>
+                  <legend>最初のドロップ側（D）</legend>
+                  <div className="segmented">
+                    {(["A", "B"] as Person[]).map((p) => (
+                      <button
+                        type="button"
+                        aria-pressed={first === p}
+                        key={p}
+                        onClick={() => setFirst(p)}
+                      >
+                        {p === "A" ? nameA || "A" : nameB || "B"}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() =>
+                      setFirst(
+                        crypto.getRandomValues(new Uint8Array(1))[0] % 2
+                          ? "A"
+                          : "B",
+                      )
+                    }
+                  >
+                    ランダムに選ぶ
+                  </button>
+                </fieldset>
+                <HandSetting
+                  hand={app.settings.hand}
+                  change={(hand) => app.update({ ...app.settings, hand })}
                 />
+                <div className="rule-note">
+                  <b>累計300秒で敗北</b>
+                  <p>
+                    成功は蓄積、失敗は蓄積＋60秒を消化。D/Cは毎ターン交代し、休憩は自由です。
+                  </p>
+                </div>
                 <button
-                  className="button outline full"
-                  onClick={() => {
-                    setModal(null);
-                    setTutorial(true);
-                    setScreen(view ? "game" : "home");
-                    if (!view || view.phase === "finished") start(true);
-                  }}
+                  type="button"
+                  className="secondary"
+                  onClick={() => void app.audio(true)}
                 >
-                  チュートリアルを再表示
+                  毎分時報を試聴
                 </button>
-              </>
-            ) : modal === "rules" ? (
-              <Rules />
-            ) : modal === "history" ? (
-              <History view={view} botReview={game.botReview} />
-            ) : (
-              <>
-                <p className="prose">
-                  現在の対戦を終了して、新しい対戦を始めます。
+                <p className="footnote">{app.audioNotice}</p>
+                <p className="footnote">
+                  端末の音量・マナーモードを確認してください。落下・チェックの操作音と振動はありません。
                 </p>
-                <button
-                  className="button primary full"
-                  onClick={() => start(tutorialRequest)}
-                >
-                  新しい対戦を始める
+                <button className="primary" disabled={app.fault || app.saving}>
+                  準備を終える →
                 </button>
-              </>
+              </form>
+            </>
+          )}
+          {page === "match" && m && d && (
+            <>
+              <div className="match-heading">
+                <div>
+                  <span className="eyebrow">
+                    {d.loser
+                      ? "MATCH FINISHED"
+                      : running
+                        ? "RECORDING"
+                        : "READY WHEN YOU ARE"}
+                  </span>
+                  <h1>
+                    {d.loser ? "試合終了" : `第 ${d.turns.length + 1} ターン`}
+                  </h1>
+                </div>
+                <button
+                  className="text-button"
+                  disabled={running}
+                  onClick={() => go("history")}
+                >
+                  履歴 ↗
+                </button>
+              </div>
+              {d.loser && (
+                <section className="winner">
+                  <span>WINNER</span>
+                  <h2>{m.names[d.winner!]} の勝利</h2>
+                  <p>
+                    {m.names[d.loser]} の累計臨死時間が{" "}
+                    {seconds(total(d.scores[d.loser]))} 秒に達しました。
+                  </p>
+                  <small>
+                    {d.turns.length} ターン ／{" "}
+                    {new Date(m.createdAt).toLocaleString("ja-JP")}
+                  </small>
+                </section>
+              )}
+              {!d.loser && (
+                <div className="role-band">
+                  <span>
+                    <b>D</b> {m.names[d.dropper]} <small>スマホを持つ</small>
+                  </span>
+                  <span>
+                    <b>C</b> {m.names[other(d.dropper)]} <small>前を向く</small>
+                  </span>
+                </div>
+              )}
+              {running && (
+                <>
+                  <Timer elapsed={app.elapsed} />
+                  <p className="recording-state" aria-live="polite">
+                    {app.dropped === null
+                      ? "落下・チェックを記録してください"
+                      : `落下 ${seconds(app.dropped)} 秒で記録済み`}
+                  </p>
+                  <p className="wake-note">{app.wakeNotice}</p>
+                  <div
+                    className={`record-controls ${app.settings.hand === "left" ? "left-handed" : ""}`}
+                  >
+                    <button
+                      className="drop-button"
+                      disabled={app.dropped !== null}
+                      onContextMenu={(e) => e.preventDefault()}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        record("drop");
+                      }}
+                      onClick={(e) => {
+                        if (e.detail === 0) record("drop");
+                      }}
+                    >
+                      <span>DROP</span>
+                      <strong>
+                        {app.dropped === null ? "落下" : "記録済み"}
+                      </strong>
+                    </button>
+                    <button
+                      className="check-button"
+                      onContextMenu={(e) => e.preventDefault()}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        record("check");
+                      }}
+                      onClick={(e) => {
+                        if (e.detail === 0) record("check");
+                      }}
+                    >
+                      <span>CHECK</span>
+                      <strong>チェック</strong>
+                      <small>振り向いた瞬間</small>
+                    </button>
+                  </div>
+                  <p className="footnote center">
+                    操作音・振動なし。60.000秒で自動判定。
+                  </p>
+                </>
+              )}
+              {!running && !d.loser && (
+                <div className="start-area">
+                  {m.events.at(-1)?.kind === "interrupted" && (
+                    <div className="rule-note">
+                      中断したターンは無効です。役割・累計を変えずにやり直します。
+                    </div>
+                  )}
+                  <button
+                    className="primary start-button"
+                    disabled={app.saving || app.fault}
+                    onClick={app.start}
+                  >
+                    {d.turns.length ? "次のターンを開始" : "カウント開始"}
+                    <small>押すと即60秒計測</small>
+                  </button>
+                  <p className="footnote center">
+                    両者の準備ができてから。待ち時間の制限はありません。
+                  </p>
+                </div>
+              )}
+              <div className="score-grid">
+                {(["A", "B"] as Person[]).map((p) => (
+                  <ScoreCard
+                    key={p}
+                    name={m.names[p]}
+                    score={d.scores[p]}
+                    role={
+                      running || !d.loser
+                        ? d.dropper === p
+                          ? "次・現在のD"
+                          : "次・現在のC"
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+              <p className="formula-note">
+                <span className="swatch accumulated" /> 蓄積 ＋{" "}
+                <span className="swatch consumed" /> 消化済み ＝
+                累計。ペナルティは消化済みの内訳です。
+              </p>
+              {!running && last && (
+                <section className="last-result" aria-label="直前ターンの結果">
+                  <div className="section-heading">
+                    <span>LAST TURN · {last.number}</span>
+                    <h2>{REASONS[last.reason]}</h2>
+                  </div>
+                  <TurnDetail turn={last} match={m} />
+                </section>
+              )}
+              {!running && (
+                <>
+                  <div className="button-row">
+                    <button className="secondary" onClick={() => go("home")}>
+                      ホーム
+                    </button>
+                    <button className="secondary" onClick={() => go("history")}>
+                      全履歴・推移
+                    </button>
+                  </div>
+                  {last && (
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        setDialog("void");
+                        setAgreed(false);
+                        setReason("");
+                      }}
+                    >
+                      直前ターンを無効化・再プレイ
+                    </button>
+                  )}
+                </>
+              )}
+              {d.loser && (
+                <>
+                  <Chart match={m} />
+                  <button className="primary" onClick={() => go("setup")}>
+                    新しい試合を準備
+                  </button>
+                </>
+              )}
+              <div
+                className={`save-status ${app.fault ? "bad" : ""}`}
+                role="status"
+              >
+                {app.fault
+                  ? "未保存の記録があります。JSONで保管してください"
+                  : app.saving
+                    ? "端末に保存中…"
+                    : "✓ 端末内に保存済み"}
+              </div>
+            </>
+          )}
+          {page === "history" && m && (
+            <>
+              <PageHeading
+                kicker="RECORDS"
+                title={`${m.names.A} × ${m.names.B}`}
+                back={() => go("match")}
+              />
+              <Chart match={m} />
+              <History match={m} />
+              <div className="button-row">
+                <button
+                  className="secondary"
+                  onClick={() =>
+                    download("handkerchief-match.json", exportJSON([m]))
+                  }
+                >
+                  JSON書き出し
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() =>
+                    download(
+                      "handkerchief-match.csv",
+                      exportCSV([m]),
+                      "text/csv",
+                    )
+                  }
+                >
+                  CSV書き出し
+                </button>
+              </div>
+              <button
+                className="text-button danger-text"
+                onClick={() => {
+                  setDialog("delete");
+                  setAgreed(false);
+                }}
+              >
+                この試合を削除
+              </button>
+            </>
+          )}
+          {page === "past" && (
+            <>
+              <PageHeading
+                kicker="ARCHIVE"
+                title="過去の試合"
+                back={() => go("home")}
+              />
+              {app.matches.length === 0 && (
+                <p className="empty">保存された試合はありません。</p>
+              )}
+              {app.matches.map((row) => {
+                const result = derive(row);
+                return (
+                  <button
+                    className="archive-row"
+                    key={row.id}
+                    onClick={() => {
+                      app.open(row);
+                      go("history");
+                    }}
+                  >
+                    <div>
+                      <b>
+                        {row.names.A} × {row.names.B}
+                      </b>
+                      <small>
+                        {new Date(row.createdAt).toLocaleString("ja-JP")} ·{" "}
+                        {result.turns.length} ターン
+                      </small>
+                    </div>
+                    <span>
+                      {result.winner
+                        ? `${row.names[result.winner]} 勝利`
+                        : "中断・続行可"}{" "}
+                      →
+                    </span>
+                  </button>
+                );
+              })}
+              <button
+                className="secondary full"
+                onClick={() =>
+                  download(
+                    "handkerchief-all-matches.json",
+                    exportJSON(app.matches),
+                  )
+                }
+              >
+                全試合をJSONで書き出す
+              </button>
+            </>
+          )}
+          {page === "rules" && (
+            <>
+              <PageHeading
+                kicker="RULEBOOK"
+                title="ルールと計測について"
+                back={() => go("home")}
+              />
+              <Rules />
+            </>
+          )}
+          {page === "settings" && (
+            <>
+              <PageHeading
+                kicker="INSTRUMENT SETTINGS"
+                title="計器の設定"
+                back={() => go("home")}
+              />
+              <div className="form">
+                <HandSetting
+                  hand={app.settings.hand}
+                  change={(hand) => app.update({ ...app.settings, hand })}
+                />
+                <label className="toggle">
+                  毎分00秒のチャイム
+                  <input
+                    type="checkbox"
+                    checked={app.settings.chime}
+                    onChange={(e) =>
+                      app.update({ ...app.settings, chime: e.target.checked })
+                    }
+                  />
+                </label>
+                <label>
+                  チャイム音量
+                  <input
+                    aria-label="チャイム音量"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={app.settings.volume}
+                    onChange={(e) =>
+                      app.update({
+                        ...app.settings,
+                        volume: Number(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label className="toggle">
+                  声の時報（端末内の日本語音声）
+                  <input
+                    type="checkbox"
+                    checked={app.settings.voice}
+                    disabled={!voiceAvailable}
+                    onChange={(e) =>
+                      app.update({ ...app.settings, voice: e.target.checked })
+                    }
+                  />
+                </label>
+                {!voiceAvailable && (
+                  <small>
+                    利用できる端末内の日本語音声がありません。チャイムは使えます。
+                  </small>
+                )}
+                <button
+                  className="secondary"
+                  onClick={() => void app.audio(true)}
+                >
+                  時報を試聴
+                </button>
+                <p className="footnote">
+                  {app.audioNotice} 音声が利用できなくても計測は続行できます。
+                </p>
+                <label className="toggle">
+                  アニメーションを軽減
+                  <input
+                    type="checkbox"
+                    checked={app.settings.reduced}
+                    onChange={(e) =>
+                      app.update({ ...app.settings, reduced: e.target.checked })
+                    }
+                  />
+                </label>
+                <div className="rule-note">
+                  時報はターン開始からの60秒後ではなく、端末の実時刻の毎分00秒に鳴ります。音量・マナーモード・ブラウザ制限・遅延の影響を受けます。
+                </div>
+                <div className="rule-note">
+                  <b>
+                    {offlineReady ? "オフライン準備完了" : "オフライン準備中"}
+                  </b>
+                  <p>
+                    一度オンラインで読み込みを完了してから、Chromeのメニューで「ホーム画面に追加」を選んでください。更新は次回起動時に反映され、計測中に自動再読込はしません。
+                  </p>
+                </div>
+                <a href="/licenses.txt">利用ライブラリのライセンス</a>
+              </div>
+            </>
+          )}
+        </main>
+      )}
+      {dialog && (
+        <div className="modal-backdrop">
+          <section
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dialog-title"
+          >
+            <h2 id="dialog-title">
+              {dialog === "void" ? "直前ターンを無効化" : "この試合を削除"}
+            </h2>
+            <p>
+              {dialog === "void"
+                ? "旧記録と理由は監査履歴に残ります。確定データから累計を計算し直し、同じ役割で再プレイします。"
+                : "この端末から試合記録を削除します。元には戻せません。必要なら先にJSONを書き出してください。"}
+            </p>
+            {dialog === "void" && (
+              <label>
+                訂正理由
+                <textarea
+                  aria-label="訂正理由"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  maxLength={300}
+                />
+              </label>
             )}
-          </Modal>
-        )}
-      </main>
-      <aside className="orientation-notice" role="status" hidden={!landscape}>
-        <svg
-          viewBox="0 0 48 64"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          aria-hidden="true"
+            <label className="toggle">
+              <span>
+                {dialog === "void"
+                  ? "両者で無効化に合意しました"
+                  : "記録の削除を確認しました"}
+              </span>
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+              />
+            </label>
+            <div className="button-row">
+              <button className="secondary" onClick={() => setDialog(null)}>
+                戻る
+              </button>
+              <button
+                className="primary"
+                disabled={!agreed || (dialog === "void" && !reason.trim())}
+                onClick={() => void confirmed()}
+              >
+                {dialog === "void" ? "無効化してやり直す" : "削除する"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      <footer className="app-footer">
+        USOTUKI / HANDKERCHIEF INSTRUMENT <span>記録は端末内のみ</span>
+      </footer>
+    </div>
+  );
+}
+function PageHeading({
+  kicker,
+  title,
+  back,
+}: {
+  kicker: string;
+  title: string;
+  back: () => void;
+}) {
+  return (
+    <div className="page-heading">
+      <button className="back" onClick={back} aria-label="戻る">
+        ←
+      </button>
+      <div>
+        <span className="eyebrow">{kicker}</span>
+        <h1>{title}</h1>
+      </div>
+    </div>
+  );
+}
+function HandSetting({
+  hand,
+  change,
+}: {
+  hand: "left" | "right";
+  change: (h: "left" | "right") => void;
+}) {
+  return (
+    <fieldset>
+      <legend>スマホを持つ手・ボタン配置</legend>
+      <div className="segmented">
+        <button
+          type="button"
+          aria-pressed={hand === "left"}
+          onClick={() => change("left")}
         >
-          <rect x="10" y="4" width="28" height="54" rx="5" />
-          <path d="M20 51h8" />
-        </svg>
-        <h2>縦向きにしてください</h2>
-        <p>このゲームは縦画面でプレイします。</p>
-      </aside>
-    </>
+          左手
+        </button>
+        <button
+          type="button"
+          aria-pressed={hand === "right"}
+          onClick={() => change("right")}
+        >
+          右手
+        </button>
+      </div>
+    </fieldset>
   );
 }

@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "USOTUKI ハンカチ落とし計時器",
+  "short_name": "ハンカチ計時器",
+  "description": "実物のハンカチで遊ぶ2人用の計時・判定・記録アプリ",
+  "lang": "ja",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#101110",
+  "theme_color": "#101110",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

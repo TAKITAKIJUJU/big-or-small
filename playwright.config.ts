@@ -9,12 +9,12 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: "npm run dev -- --port 5173 --strictPort",
-        url: "http://127.0.0.1:5173",
+        command: "npm run build && npm run preview -- --port 4174 --strictPort",
+        url: "http://127.0.0.1:4174",
         reuseExistingServer: true,
       },
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:5173",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4174",
     viewport: { width: 390, height: 844 },
     launchOptions: {
       executablePath: "/usr/bin/chromium",

@@ -1,122 +1,31 @@
-# ビルドとCloudflare公開手順
+# 静的配信とusotuki.app
 
-確認日：2026-11-14。ユーザーの明示承認を受け、本番へ公開済み。
+2026-11-15確認。プロダクトはハンカチ落とし計時器。Reactの静的SPA／PWAで、サーバー処理・試合データの送信・外部DBはない。
 
-## 公開中のURL
+## 既存資産の確認
 
-**https://usotuki.app/**
+接続済みCloudflare APIで、usotuki.appがWorker「usotuki」のproductionへ割り当て済み、compatibility_date=2026-11-14、bindings=0と確認した。既存の静的配信方式を維持する。DNS・ドメイン割当・契約プランは変更しない。アプリを置き換えても、既存ブラウザの旧保存データを勝手に削除しない。
 
-Cloudflare Worker `usotuki` のStatic Assetsのみで配信する。動的コードなし（API確認で`has_modules: false`）、bindingsなし、Worker Cacheなし、`run_worker_first: false`。プラン変更、DB、Durable Objects、課金APIは追加していない。
+今回の作業ブランチはcodex/handkerchief-pwa。作業中だった変更はcodex/archive-air-poker-wip-20261115へコミットして保全した。Git履歴とリポジトリ名は保持する。
 
-検証済みビルドの7ファイルを公式のDirect Uploads APIでアップロードし、Custom Domainを接続。Cloudflareが管理するプロキシ付きAAAAレコードが作成された。HTTPS 200と全アセットのバイト一致、公開URLでの3D表示・13ラウンド完走・履歴・再戦を確認済み。
+## 公式資料と無料枠
 
-初回公開のソースは`3de022c`、配信ファイルは既存リポジトリの`codex/usotuki-static-release`ブランチ、コミット`94e8849d2010880df2726266dcc5c66d8961a294`に保存。秘密を含まない配信記録は`deployment/production.json`。
+確認日2026-11-15。
 
-接続済みCloudflareツールを利用できたため、CLIへの認証情報の受け渡しは行わず公式APIを使用した。アセット用の短期JWTはメモリと非表示の標準入力でのみ扱い、ソース・ファイル・出力ログへ保存していない。
+- https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/ ：静的資産へのリクエストは無料・無制限、資産保存の追加料金なし。動的Workerを起動するリクエストは別扱い。
+- https://developers.cloudflare.com/workers/platform/limits/#static-assets ：Freeは20,000資産／バージョン、1ファイル25MiB。今回のビルドは9ファイル、最大のJSも約264KB。
+- https://developers.cloudflare.com/workers/platform/pricing/ ：Worker Cacheを有効にすると静的配信でも別のリクエスト課金条件があるため、既存同様無効を維持する。
+- https://developers.cloudflare.com/changelog/post/2026-11-11-static-assets-base-path/ ：新規構成はcf CLI、既存は利用中の方式を維持するという現行の案内を確認。
+- https://developers.cloudflare.com/cf/ ：CLIを新規利用する場合の公式入口。今回は認証済みの既存API連携で静的資産を送るため、CLIを追加して認証方式を混在させない。別環境で手動実行する場合は公式のログイン／プロジェクト手順を先に確認する。
 
-公式API手順：https://developers.cloudflare.com/workers/static-assets/direct-upload/
+資産のみ、run_worker_first=false、bindingsなし、動的JSモジュールなし、Worker Cache無効。Cloudflare側のWorkerとブラウザ内のService Workerは別物。PWAのオフラインキャッシュは端末内で動く。
 
-## 今の成果物とプレビュー
+## ビルドと配信
 
-`npm ci && npm run build` で `dist/` を生成する。Bot、描画、音、保存はブラウザ内だけで動作し、Workerの動的コード、DB、WebSocketは不要。
+npm ci → npm run typecheck → npm run lint → npm test → npm run build → npm run test:e2e。
 
-仮想環境内では `npm run dev`、ビルド確認は `npm run preview`。標準のVite URLは同じ仮想環境のブラウザ専用。スマホ自身のlocalhostからは届かない。Android版Codexの正規プレビュー転送が利用できる場合に開く。今回のSitesプレビューは `relay could not open browser port 4173: timed out waiting for relay readiness` で失敗。外向きのプレビューURLは発行されていない。
+dist/の内容だけを公開する。Service Workerはルート/sw.js、manifestは/manifest.webmanifest。sw.jsをSPA用HTMLへフォールバックさせないよう、実ファイルとContent-Typeを確認する。全ファイルのハッシュ・サイズから資産manifestを作り、既存APIのassets-upload-sessionと静的アップロードで更新する。認証情報はメモリと非表示stdinだけに渡し、ソース・ログ・テキストへ保存しない。
 
-Playwrightは独立したローカルのテスト用サーバーを立ち上げ、仮想環境内Chromiumで検査する。これは公開・スマホ向け転送ではない。
+公開URLのHTML・JS・CSS・アイコン・manifest・Service Worker・ライセンスがビルドと一致することを照合し、公開URLで主要ブラウザ検査を行う。公開コミットとdeployment IDはdeployment/production.jsonに記録する。
 
-## ドメインの確認結果
-
-接続済みCloudflare APIの読取専用検査：
-
-- `usotuki.app` のZoneは `active`。
-- ネームサーバーは `byron.ns.cloudflare.com` と `noor.ns.cloudflare.com`。
-- SSL verificationは `certificate_status: active`、ワイルドカードのUniversal証明書。
-- 公開前のルートDNSは0件。公開時にCustom Domainが管理するプロキシ付きAAAAレコードを作成。
-- HTTPS配信と仮想環境Chromiumの対戦開始は確認済み。Android実機は未検証。
-
-別ドメインや別リポジトリへは公開しない。
-
-## CLIで更新する場合の参考手順（今回の公開は上記API経由）
-
-新規Cloudflare設定なので公式推奨の `cf` を選ぶ。既存Wrangler設定はない。2026-11-14時点で npm の `cf` は `1.0.0-beta.32`。betaの設定を想像して追加せず、CLIの自動構成をレビューして導入する。現在のアプリはViteだけでビルドでき、Cloudflare CLIを起動依存にしない。
-
-1. 公開作業時に `npm exec --package=cf@1.0.0-beta.32 -- cf init .` で既存プロジェクトを設定する。これは既存ソースを変更し得るため、専用ブランチで差分を確認する。新リポジトリは作らない。
-2. 最新の `cf` とCloudflare Vite plugin 2.0 betaの公式手順を再確認。静的アセットのみのビルドを選び、動的entrypoint、リソースbindings、Workers Cacheを追加しない。`cloudflare.config.ts` の `worker.name` は `usotuki`、compatibilityDateはその作業日。
-3. **`cloudflare.config.ts` に `assets.directory` は存在しない。** Vite構成ではViteのクライアント出力が配信ソース。`worker.assets` は実行時ルーティングの設定のみ。`runWorkerFirst` はfalse（既定のアセット優先）。CloudflareのWorkerキャッシュ機能も有効化しない。
-4. `npm run typecheck && npm run lint && npm run test && npm run build` を通す。`cf build` はpackage.jsonのbuildスクリプト自体を実行しないので型検査等を別途行う。
-5. `cf build` または `cf deploy --dry-run` で `.cloudflare/output/v0/` をローカル検証。公式資料ではdry-runはAPI送信・資格情報不要。今回、このCloudflareビルド／dry-runは未実行で、Vite製品ビルドまで検証済み。
-6. 検証済み差分、対象アカウント、Worker名、静的ルーティング、無料プラン、ドメイン追加内容を提示し、**本番公開の承認を得る**。
-7. 承認後に `cf auth login` など環境内の安全な接続を使用。APIトークンをチャット・ソース・コマンド引数・ログへ書かない。`cf deploy --prebuilt --mode production` で検証済みのビルドを配信する。自動構成や新規bindingsでリソースを作らないことを再確認。
-8. `usotuki.app` をCustom Domainとして接続する操作と、そのDNS変更を別途承認対象として実行する。既存レコードがあれば削除せず影響を確認。公開後にDNS、HTTPS、キャッシュ、再読込、13ラウンドを確認する。
-
-GitHubの自動ビルド連携は未設定。導入時は既存 `TAKITAKIJUJU/big-or-small` だけの最小権限、利用プラン、ブランチ条件、ビルド上限を確認する。リポジトリの公開設定・アカウント権限は変更しない。
-
-## 無料枠と出典
-
-以下は公式ドキュメントを2026-11-14に確認した値。アカウント全体の既存使用量と実際の契約は別途確認する。
-
-| 項目                        | 無料枠・注意                                             | 出典                                                                             |
-| --------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Workers Static Assets       | 静的リクエストは無料・無制限、アセット保管の追加料金なし | https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/ |
-| 静的ファイル                | Freeは20,000ファイル/Worker version、1ファイル25MiB      | https://developers.cloudflare.com/workers/platform/limits/                       |
-| Worker動的処理              | Free 100,000リクエスト/日、10ms CPU/回                   | https://developers.cloudflare.com/workers/platform/pricing/                      |
-| Workers Builds              | Freeは3,000分/月、同時ビルド1、20分/回のtimeout          | https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/       |
-| Durable Objects（将来のみ） | SQLiteのみFree対応、100,000 requests/日、13,000 GB-s/日  | https://developers.cloudflare.com/durable-objects/platform/pricing/              |
-| DO SQLite（将来のみ）       | 500万読取行/日、10万書込行/日、合計5GB保管               | 同上                                                                             |
-
-静的配信が無料でも、`runWorkerFirst` でWorkerを通すと別枠。Worker Cacheを有効化すると通常無料の静的リクエストもWorker料金の対象になる。初期版はどちらも必要ない。DOやオンラインを無料・無制限と説明しない。Paidへの変更や使用量課金につながるリソース作成は承認なしでは行わない。
-
-公式CLI資料：
-
-- https://developers.cloudflare.com/cf/agents/
-- https://developers.cloudflare.com/cf/projects/
-- https://developers.cloudflare.com/cf/projects/cloudflare-config/
-- https://developers.cloudflare.com/workers/static-assets/
-- https://developers.cloudflare.com/workers/cache/
-
-公開直前に上記ページとDashboardのプラン・使用量を再確認する。
-
-## 参加料上昇版の公開更新
-
-2026-11-14、同じWorkerとドメインへ更新。ソース`6b4edec`、静的ビルド`6793c8c`、deployment `d0762116f262401f9595904e846f46d7`。最新の配信記録とハッシュはdeployment/production.jsonを参照。
-
-新しい対戦は参加料2〜80、追加上限も上昇、最終回は有効スタック。旧セーブはclassicで維持。更新後の7アセットは配信データとビルドのバイト一致を確認した。本番URLで13回完走・参加料2→4・160対440から320対280の逆転・0で途中終了の4件を実操作で確認して成功。
-
-新規リソース作成、DNS変更、プラン変更はなく、静的配信のみを更新した。Android実機は未検証。
-
-## 読み合いNPC版の公開更新
-
-2026-11-14、同じ静的配信へ更新。ソース`138d63f`、ビルド`3a229f4`、deployment `240e3f523e304645b2b640c7739d5eb9`。配信7ファイルのバイト一致を確認。
-
-本番URLで13回完走・実際の判断記録の表示・対戦中の記録非表示・終了後の開示設定・再読込から前の対戦の記録を開く3件が成功（約45秒）。NPCの推定はブラウザ内だけで実行し、新しいAPI、LLM、サーバー処理、DB、DNS変更、プラン変更は追加していない。Android実機未検証。
-
-## 上級NPCの反復探索版の公開更新
-
-2026-11-14、既存の静的Bot版を同じ https://usotuki.app/ に更新した。
-
-- ソース：`34b3654f71d31ac27910c5aea9094b516125bb01`（codex/usotuki-3d-bot）
-- 配信ビルド：`82c2152d317b4324d19506f60a46b3d092a2acf3`（codex/usotuki-static-release）
-- deployment：`596320817446476ca855a9bd5f998379`
-- 前回：`240e3f523e304645b2b640c7739d5eb9`
-- 静的8ファイルが公開URLの配信とバイト一致。増えたファイルはブラウザ内の探索用Web Worker（約14.2KB）。Cloudflare側は引き続きassets-only、has_modules=false、動的コードなし、run_worker_first=false、bindingsなし、Worker Cache無効。
-- 既存ドメイン・DNS・プラン・API・DBは変更しない。ゲームの推定・反復探索・乱数はブラウザ内。新規設定は上級だが、既存の難易度設定は保存どおり引き継ぐ。
-- 公開URLで上級13回完走、対戦中の判断ログ非表示、終了後のログ保存・開示設定、Workerへ秘密札を送らない、Worker不可時の継続、計算中の再戦の6件が成功（約1.1分）。
-
-実行：`PLAYWRIGHT_BASE_URL=https://usotuki.app npm run test:e2e -- --grep '実操作で13|上級は実際|Workerを起動|上級の計算中|対戦中はNPC|終了後の判断'`
-
-旧上級に対する勝率比較は公開ブラウザの試験とは別に、純粋エンジンと固定seedで実施した。241勝2分157敗はその400戦の結果で、プレイヤー全員への勝率ではない。Android実機未検証。配信用ZIPと公開画面は `/workspace/artifacts/usotuki/strong-npc/`。
-
-## 抽選先行・参加料持越版の公開
-
-2026-11-14、既存 https://usotuki.app/ を更新。
-
-- source：`0d5a3461157afd42165365d276f519d45e6115a4`
-- build：`a4e2e50ebceb7c30170a9bc713ccee5a41090a30`
-- deployment：`263e9a79915e452592e119ad79af400f`（前回596320817446476ca855a9bd5f998379）
-- 新規open対戦に抽選先行・全回有効スタック・同数時の追加分返還と参加料持越を適用。旧classic／pressureの進行中セーブは当時のルールを維持。
-- 公開8ファイルがビルドとバイト一致。assets-only、has_modules=false、run_worker_first=false、bindingsなし、Worker Cache無効。DNS・プラン・DB・外部APIは追加しない。
-- 公開URLで上級13回完走、旧pressureセーブの逆転精算、選札前の条件と298上限、同数返還・4持越→次回12・再読込、実Worker応答の5件が成功（52.5秒）。
-
-実行：`PLAYWRIGHT_BASE_URL=https://usotuki.app npm run test:e2e -- --grep '実操作で13|選札前に|全額同数|公開された合法ログ|上級は実際'`
-
-配信用ZIP・画面・公開資産照合JSONは `/workspace/artifacts/usotuki/open-rules/`。Android実機未検証。
+Service WorkerにはskipWaitingを入れない。更新データの取得後、全画面を閉じて開き直すと次の版へ切り替わる。計測中に強制リロードしない。資産は静的な同一内容なので、オフライン読込でVaryヘッダーの差によりキャッシュが外れないようにする。
