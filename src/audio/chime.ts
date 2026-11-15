@@ -46,6 +46,8 @@ let voiceAssets: Promise<void> | null = null;
 let mediaReady = false;
 let priming: Promise<void> | null = null;
 const toneMedia = new Map<Tone, HTMLAudioElement>();
+const retiringMedia = new Set<HTMLAudioElement>();
+let preparation = 0;
 let voiceMedia: HTMLAudioElement | null = null;
 let previewMedia: HTMLAudioElement | null = null;
 let previewVoiceMedia: HTMLAudioElement | null = null;
@@ -153,27 +155,42 @@ function loadVoice() {
   loadingVoice = voiceBytes()
     .then((data) => ctx.decodeAudioData(data.slice(0)))
     .then((buffer) => {
-      voiceBuffer = buffer;
+      if (context === ctx) voiceBuffer = buffer;
     })
     .catch(() => {
       /* Prepared HTML Audio remains available. */
     })
     .finally(() => {
-      loadingVoice = null;
+      if (context === ctx) loadingVoice = null;
     });
 }
 /** 操作中に再生経路を無音で準備。開始時の採時を待たせない。 */
-export async function unlockAudio() {
+export async function unlockAudio(refreshMedia = false) {
+  const wasReady = ready();
+  const previousState = context?.state;
+  let replacedContext = false;
   const attempts: Promise<unknown>[] = [];
   try {
-    context ??= new AudioContext({ latencyHint: "interactive" });
+    if (!context || context.state === "closed") {
+      context = new AudioContext({ latencyHint: "interactive" });
+      voiceBuffer = null;
+      loadingVoice = null;
+      replacedContext = true;
+    }
     attempts.push(context.resume());
     loadVoice();
   } catch {
     /* HTML Audio fallback */
   }
-  if (!mediaReady && !priming) {
-    const tones = (Object.keys(paths) as Tone[]).map(player);
+  if (refreshMedia || (!mediaReady && !priming)) {
+    const generation = ++preparation;
+    const candidates = new Map(
+      (Object.keys(paths) as Tone[]).map((kind) => {
+        const audio = new Audio(paths[kind]);
+        audio.preload = "auto";
+        return [kind, audio] as const;
+      }),
+    );
     const prime = async (audio: HTMLAudioElement) => {
       audio.muted = true;
       try {
@@ -185,14 +202,31 @@ export async function unlockAudio() {
       }
     };
     // 同じユーザー操作内で全てのplay()を呼ぶ。
-    const toneAttempts = tones.map(prime);
+    const toneAttempts = [...candidates.values()].map(prime);
     priming = Promise.all(toneAttempts)
       .then(() => {
+        if (generation !== preparation) return;
+        // 今鳴っている長音を切らずに、次のターン用の再生経路へ交代する。
+        for (const old of toneMedia.values())
+          if (!old.paused) {
+            retiringMedia.add(old);
+            const ended = () => {
+              retiringMedia.delete(old);
+              old.removeEventListener("ended", ended);
+              old.removeEventListener("pause", ended);
+            };
+            old.addEventListener("ended", ended);
+            old.addEventListener("pause", ended);
+          }
+        toneMedia.clear();
+        for (const [kind, audio] of candidates) toneMedia.set(kind, audio);
         mediaReady = true;
       })
-      .catch(() => {})
+      .catch(() => {
+        if (generation === preparation) mediaReady = false;
+      })
       .finally(() => {
-        priming = null;
+        if (generation === preparation) priming = null;
       });
   }
   void prepareVoiceMedia().catch(() => {});
@@ -205,6 +239,11 @@ export async function unlockAudio() {
     throw new Error(
       "このブラウザが音声再生を許可していません。Chromeで開いて再試聴してください",
     );
+  return (
+    !wasReady ||
+    replacedContext ||
+    (previousState !== "running" && context?.state === "running")
+  );
 }
 function stop(pool: Pool) {
   pool.generation++;
@@ -222,6 +261,8 @@ function stop(pool: Pool) {
 export function cancelSound(includePreview = false) {
   stop(scheduled);
   for (const audio of toneMedia.values()) audio.pause();
+  for (const audio of retiringMedia) audio.pause();
+  retiringMedia.clear();
   voiceMedia?.pause();
   if (voiceMedia)
     voiceGeneration.set(voiceMedia, (voiceGeneration.get(voiceMedia) ?? 0) + 1);
@@ -398,7 +439,7 @@ export async function previewChime(
     await previewMedia.play();
     return "media" as const;
   } catch {
-    if (synthTone(p, "tick", 0, preview)) {
+    if (synthTone(p, "bell", 0, preview)) {
       for (let s = 1; s <= 10; s++)
         synthTone(
           p,
@@ -406,7 +447,8 @@ export async function previewChime(
           s * 1000,
           preview,
         );
-      if (p.voice) speak(p, new Date(2026, 0, 1, 8, 8).getTime(), 0, preview);
+      if (p.voice)
+        speak(p, new Date(2026, 0, 1, 8, 8).getTime(), 3000, preview);
       onPlaying(true);
       timer(
         preview,

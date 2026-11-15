@@ -1,7 +1,7 @@
 """Developer-only asset generation. Requires pyopenjtalk 0.4.1, numpy and ffmpeg.
 
-Usage: python scripts/generate-audio.py /path/to/nitech_jp_atr503_m001.htsvoice
-The voice is NIT ATR503 M001 (CC BY 3.0); see public/audio-attribution.txt.
+Usage: python scripts/generate-audio.py /path/to/mei_normal.htsvoice
+The voice is MMDAgent Mei (CC BY 3.0); see public/audio-attribution.txt.
 No TTS engine or external TTS service is used by the browser app.
 """
 import json
@@ -36,7 +36,7 @@ def mp3(path, samples):
 
 
 def speech(text):
-    raw, rate = pyopenjtalk.tts(text, speed=1.22, half_tone=-0.5)
+    raw, rate = pyopenjtalk.tts(text, speed=1.25, half_tone=-1.5)
     raw = raw / max(1, np.max(np.abs(raw))) * 0.72
     active = np.flatnonzero(np.abs(raw) > 0.008)
     raw = raw[max(0, active[0] - int(rate * 0.035)):active[-1] + int(rate * 0.06)]
@@ -49,7 +49,7 @@ texts = {f"hour-{h}": f"{'午前' if h < 12 else '午後'}{h % 12 or 12}時"
          for h in range(24)}
 texts.update({f"minute-{m}": f"{m}分" for m in range(60)})
 texts.update({f"second-{s}": f"{str(s) + '秒' if s else 'ちょうど'}をお知らせします"
-              for s in [0, 20, 40]})
+              for s in range(0, 60, 10)})
 for key, text in texts.items():
     clip = speech(text)
     clips[key] = clip
@@ -74,17 +74,17 @@ for name, data in tones.items():
     wav(ROOT / f"public/{'chime' if name == 'bell' else name}.wav", data)
 preview = np.zeros(int(RATE * 11.5))
 for second in range(11):
-    sound = tones["bell" if second == 10 else "pip" if second >= 7 else "tick"]
+    sound = tones["bell" if second in [0, 10] else "pip" if second >= 7 else "tick"]
     start = second * RATE
     preview[start:start + len(sound)] += sound
 wav(ROOT / "public/signal-preview.wav", preview)
 sample_voice = np.concatenate([clips["hour-8"], np.zeros(int(RATE * 0.08)),
                                clips["minute-8"], np.zeros(int(RATE * 0.08)), clips["second-0"]])
 assert len(sample_voice) < RATE * 6, "Announcement must finish before the three pips"
-preview[:len(sample_voice)] += sample_voice
+preview[RATE * 3:RATE * 3 + len(sample_voice)] += sample_voice
 mp3(ROOT / "public/signal-preview-voice.mp3", preview)
 max_seconds = max(len(clips[f"hour-{h}"]) + len(clips[f"minute-{m}"]) +
-                  len(clips[f"second-{s}"]) for h in range(24) for m in range(60) for s in [0, 20, 40]) / RATE + 0.16
+                  len(clips[f"second-{s}"]) for h in range(24) for m in range(60) for s in range(0, 60, 10)) / RATE + 0.16
 assert max_seconds < 6.5
 print(json.dumps({"clips": len(index), "longestAnnouncementSeconds": max_seconds,
                   "previewSeconds": len(preview) / RATE, "voiceBytes": (ROOT / 'public/time-voice.mp3').stat().st_size}))

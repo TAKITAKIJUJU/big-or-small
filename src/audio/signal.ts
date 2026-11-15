@@ -30,8 +30,8 @@ export class TimeSignalPlanner {
         const second = new Date(at).getSeconds();
         cues.push({
           at,
-          tone: second === 0 ? "bell" : second >= 57 ? "pip" : "tick",
-          ...([13, 33, 53].includes(second) ? { announceAt: at + 7000 } : {}),
+          tone: second % 10 === 0 ? "bell" : second >= 57 ? "pip" : "tick",
+          ...(second % 10 === 3 ? { announceAt: at + 7000 } : {}),
         });
         this.scheduled = at;
       }

@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { announcement, TimeSignalPlanner } from "./signal";
-it("開始時刻と無関係に57・58・59秒を予告し00秒を長音にする", () => {
+it("10秒ごとを長音にし、毎分57・58・59秒も予告する", () => {
   const p = new TimeSignalPlanner(),
     start = Date.UTC(2026, 10, 15, 23, 20, 45);
   const cues = [];
@@ -8,6 +8,7 @@ it("開始時刻と無関係に57・58・59秒を予告し00秒を長音にす�
     cues.push(...p.step(start + elapsed, elapsed, true).cues);
   const marked = cues.filter((c) => c.tone !== "tick");
   expect(marked.map((c) => [c.at - start, c.tone])).toEqual([
+    [5000, "bell"],
     [12000, "pip"],
     [13000, "pip"],
     [14000, "pip"],
@@ -15,7 +16,7 @@ it("開始時刻と無関係に57・58・59秒を予告し00秒を長音にす�
   ]);
   expect(new Set(cues.map((c) => c.at)).size).toBe(cues.length);
 });
-it("全秒を刻み、20秒・40秒・次の00秒を7秒前から予告する", () => {
+it("全秒を刻み、10秒ごとを7秒前から予告する", () => {
   const p = new TimeSignalPlanner(),
     start = Date.UTC(2026, 10, 15, 8, 8, 0),
     cues = [];
@@ -27,8 +28,11 @@ it("全秒を刻み、20秒・40秒・次の00秒を7秒前から予告する", 
       .filter((c) => c.announceAt)
       .map((c) => [c.at - start, c.announceAt! - start]),
   ).toEqual([
+    [3000, 10000],
     [13000, 20000],
+    [23000, 30000],
     [33000, 40000],
+    [43000, 50000],
     [53000, 60000],
   ]);
 });

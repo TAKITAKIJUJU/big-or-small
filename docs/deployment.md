@@ -13,7 +13,7 @@
 確認日2026-11-15。
 
 - https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/ ：静的資産へのリクエストは無料・無制限、資産保存の追加料金なし。動的Workerを起動するリクエストは別扱い。
-- https://developers.cloudflare.com/workers/platform/limits/#static-assets ：Freeは20,000資産／バージョン、1ファイル25MiB。v1.2は16ファイル、合計約1.67MB、最大は内蔵時刻音声の約671KB。
+- https://developers.cloudflare.com/workers/platform/limits/#static-assets ：Freeは20,000資産／バージョン、1ファイル25MiB。v1.3は16ファイル、合計約1.63MB、最大は内蔵時刻音声の約643KB。
 - https://developers.cloudflare.com/workers/platform/pricing/ ：Worker Cacheを有効にすると静的配信でも別のリクエスト課金条件があるため、既存同様無効を維持する。
 - https://developers.cloudflare.com/changelog/post/2026-11-11-static-assets-base-path/ ：新規構成はcf CLI、既存は利用中の方式を維持するという現行の案内を確認。
 - https://developers.cloudflare.com/cf/ ：CLIを新規利用する場合の公式入口。今回は認証済みの既存API連携で静的資産を送るため、CLIを追加して認証方式を混在させない。別環境で手動実行する場合は公式のログイン／プロジェクト手順を先に確認する。
@@ -56,3 +56,18 @@ Service WorkerにはskipWaitingを入れない。更新データの取得後、�
 - 単体40件成功。公開URLで全13件のブラウザ検査が成功（24.3秒）。試聴の終了までの再生、時報OFF時の試聴、Web Audio不可時の毎分00秒再生、主要文字・ボタンのコントラスト比4.5以上を含む。
 
 更新には全タブとPWAを閉じてから開き直す。画面下部のv1.1で確認できる。計測中の強制リロードは行わない。配信用ZIP、画面、照合JSONは /workspace/artifacts/usotuki/handkerchief-readability/ 。Android実機とスピーカーからの実際の聴取は未検証。
+
+## v1.2 秒音・予告音・長音と内蔵時刻音声
+
+2026-11-15、同じ https://usotuki.app/ へ公開。毎秒のチッ、57/58/59秒のピッ、00秒のポーンへ変更。00/20/40秒を7秒前から内蔵男性音声で予告し、端末の音声エンジンに依存しない。試聴は約12秒の「午前8時8分」サンプル。時報と音声はオフライン対応。
+
+- source：0d5f8cad5d0fd805235df5b13dc1e7ae62807b40
+- build：ef2926540c5c44aa0475f74ecbc378fa83311a37
+- deployment：fe620b5abf974f72a40d154848382c12
+- 前の検証済み版：9da5fe9556bc4a5ab224c337af77c6b5
+- 静的16ファイルがビルドとバイト一致。assets-only、動的モジュールなし、bindingsなし、DNS変更なし。
+- 単体43件成功。公開URLで全13件のブラウザ検査が成功（35.4秒）。試聴終了・秒単位の予告音・正しい時刻区間へのシーク・オフラインRange応答を含む。
+
+中間deployment eecf8ae21c7347ac97b70b06d7107ebaでは、初回のCDN音声がRange非対応でHTML Audioのシークが0秒へ戻ることを発見。現在は全内蔵音声を一度読み込み、HTML AudioはローカルBlobのメタデータ準備後に再生する。PWAキャッシュも音声のRange要求へ206で応答する。
+
+全タブとPWAを閉じて開き直し、画面下部のv1.2で確認。配信用ZIP・試聴音声・画面・照合JSONは /workspace/artifacts/usotuki/handkerchief-time-signal/ 。Android実機のスピーカーでの聴取・音量は未検証。
