@@ -27,7 +27,7 @@ export class TimeSignalPlanner {
         at += 1000
       ) {
         if (this.scheduled !== null && at <= this.scheduled) continue;
-        const second = new Date(at).getSeconds();
+        const second = Math.floor(at / 1000) % 60;
         cues.push({
           at,
           tone: second % 10 === 0 ? "bell" : second >= 57 ? "pip" : "tick",
@@ -40,15 +40,10 @@ export class TimeSignalPlanner {
   }
 }
 
-export function announcement(wall: number) {
-  const time = new Date(wall),
-    hour = time.getHours(),
-    minute = time.getMinutes();
-  const second = time.getSeconds();
-  const prefix = `${hour < 12 ? "午前" : "午後"}${hour % 12 || 12}時`;
-  const suffix = second === 0 ? "ちょうど" : `${second}秒`;
+export function announcement(elapsed: number) {
+  const seconds = Math.round(elapsed / 1000) % 60 || 60;
   return {
-    text: `${prefix}${minute}分${suffix}をお知らせします`,
-    keys: [`hour-${hour}`, `minute-${minute}`, `second-${second}`],
+    text: `${seconds === 60 ? "1分" : `${seconds}秒`}をお知らせします`,
+    keys: [`second-${seconds}`],
   };
 }

@@ -218,7 +218,7 @@ export default function App() {
                   </button>
                 </section>
                 <p className="footnote">
-                  試聴は約12秒。「午前8時8分」のサンプルです。
+                  試聴は約12秒。「1分」のサンプルです。
                 </p>
                 <p className="footnote">
                   記録はこの端末だけに保存。ログイン・対戦中の通信は不要です。
@@ -308,13 +308,13 @@ export default function App() {
                       : void app.audio(true)
                   }
                 >
-                  {app.previewPlaying ? "試聴を止める" : "毎分時報を試聴"}
+                  {app.previewPlaying ? "試聴を止める" : "経過音を試聴"}
                 </button>
                 <p className="footnote" role="status">
                   {app.previewPlaying ? "▶ 試聴を再生中" : app.audioNotice}
                 </p>
                 <p className="footnote">
-                  試聴は約12秒、「午前8時8分」のサンプルです。端末の音量・マナーモードを確認してください。落下・チェックの操作音と振動はありません。
+                  試聴は約12秒、「1分」のサンプルです。端末の音量・マナーモードを確認してください。落下・チェックの操作音と振動はありません。
                 </p>
                 <button className="primary" disabled={app.fault || app.saving}>
                   準備を終える →
@@ -679,7 +679,7 @@ export default function App() {
                   />
                 </label>
                 <label className="toggle">
-                  時刻の読み上げ（内蔵の女性音声）
+                  経過時間の読み上げ（内蔵の女性音声）
                   <input
                     type="checkbox"
                     checked={app.settings.voice}
@@ -689,7 +689,7 @@ export default function App() {
                   />
                 </label>
                 <small>
-                  1秒ごとにチッ、10秒ごとにポーン。毎分57・58・59秒はピッ。時刻は10秒ごと、7秒前から予告します。
+                  1秒ごとにチッ、10秒ごとにポーン。開始から57・58・59秒はピッ。経過時間を10秒ごとに予告します。
                 </small>
                 <button
                   className="secondary"
@@ -701,7 +701,7 @@ export default function App() {
                 >
                   {app.previewPlaying ? "試聴を止める" : "時報を試聴"}
                 </button>
-                <small>試聴は約12秒。「午前8時8分」のサンプルです。</small>
+                <small>試聴は約12秒。「1分」のサンプルです。</small>
                 <p className="footnote">
                   {app.previewPlaying ? "▶ 試聴を再生中" : app.audioNotice}{" "}
                   音声が利用できなくても計測は続行できます。
@@ -717,7 +717,7 @@ export default function App() {
                   />
                 </label>
                 <div className="rule-note">
-                  秒音と10秒ごとの時報は端末の実時刻に合わせて鳴ります。毎分00秒は3回の予告音の後のポーンが基準です。音と読み上げは通信なしで使えます。音量・マナーモード・ブラウザ制限・遅延の影響を受けます。
+                  音はターン開始を0秒として、計測と同じ時計で鳴ります。60秒は3回の予告音の後のポーンが基準です。音と読み上げは通信なしで使えます。音量・マナーモード・ブラウザ制限・遅延の影響を受けます。
                 </div>
                 <div className="rule-note">
                   <b>
@@ -788,7 +788,7 @@ export default function App() {
         </div>
       )}
       <footer className="app-footer">
-        USOTUKI · ハンカチ計時器 · v1.3.1 <span>記録は端末内のみ</span>
+        USOTUKI · ハンカチ計時器 · v1.4 <span>記録は端末内のみ</span>
       </footer>
     </div>
   );

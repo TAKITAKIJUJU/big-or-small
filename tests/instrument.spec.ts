@@ -422,7 +422,7 @@ test("時報OFFでも試聴は最後まで再生し、WebAudio不可でも毎分
     .getByRole("button", { name: "準備を終える →", exact: true })
     .click();
   await start(page);
-  await page.clock.runFor(15000);
+  await page.clock.runFor(11000);
   const plays = await page.evaluate(
     () =>
       (
@@ -438,19 +438,17 @@ test("時報OFFでも試聴は最後まで再生し、WebAudio不可でも毎分
   );
   expect(plays.length).toBeGreaterThanOrEqual(2);
   const tones = plays.filter((p) => /\/(tick|pip|chime)\.wav$/.test(p.src));
-  expect(
-    tones.filter((p) => p.src.endsWith("/pip.wav")).map((p) => p.at % 60000),
-  ).toEqual([57000, 58000, 59000]);
+  expect(tones.filter((p) => p.src.endsWith("/pip.wav"))).toHaveLength(0);
   const bells = tones.filter((p) => p.src.endsWith("/chime.wav"));
-  expect(bells.map((p) => p.at % 60000)).toEqual([50000, 0]);
+  expect(bells.map((p) => p.at % 60000)).toEqual([55000]);
   const bell = bells.at(-1)!;
   expect(bell.volume).toBeGreaterThan(0.4);
   expect(tones.some((p) => p.src.endsWith("/tick.wav"))).toBe(true);
   expect(plays.some((p) => p.src.endsWith("/time-voice.mp3"))).toBe(true);
   const speech = plays.filter((p) => p.src.endsWith("/time-voice.mp3"));
-  expect(speech[0].at % 60000).toBe(53000);
-  expect(speech).toHaveLength(3);
-  for (const [i, key] of ["hour-8", "minute-9", "second-0"].entries())
+  expect(speech[0].at % 60000).toBe(48000);
+  expect(speech).toHaveLength(1);
+  for (const [i, key] of ["second-10"].entries())
     expect(speech[i].position).toBeCloseTo(voiceIndex[key].start, 3);
 });
 
@@ -559,11 +557,11 @@ test("音声の代替経路でも3ターン連続で10秒ごとの時報と読�
     );
     const bells = played.filter((p) => p.src.endsWith("/chime.wav"));
     expect(bells.length, `${turn}ターン目の長音`).toBeGreaterThanOrEqual(3);
-    expect(bells.every((p) => p.at % 10000 === 0)).toBe(true);
+    expect(bells.every((p) => (p.at - began) % 10000 === 0)).toBe(true);
     expect(
       played.filter((p) => p.src.endsWith("/time-voice.mp3")).length,
       `${turn}ターン目の読み上げ`,
-    ).toBeGreaterThanOrEqual(6);
+    ).toBeGreaterThanOrEqual(2);
   }
 });
 
@@ -645,7 +643,7 @@ test("音声機能が閉じられても2ターン目の開始で作り直し、�
   );
   expect(
     tones.filter((p) => p.frequency === 500 && p.state === "running"),
-  ).toHaveLength(3);
+  ).toHaveLength(0);
 });
 
 for (const fallback of [false, true]) {
@@ -771,3 +769,48 @@ for (const fallback of [false, true]) {
     );
   });
 }
+
+test("実時計を6時間変えても開始10秒で鳴り、早期終了後は鳴らず次ターンは0秒に戻る", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.AudioContext = class {
+      constructor() {
+        throw new Error("fallback");
+      }
+    } as unknown as typeof AudioContext;
+    const play = HTMLMediaElement.prototype.play;
+    (window as typeof window & { elapsedBells: number[] }).elapsedBells = [];
+    HTMLMediaElement.prototype.play = function () {
+      if (!this.muted && this.src.endsWith("/chime.wav"))
+        (
+          window as typeof window & { elapsedBells: number[] }
+        ).elapsedBells.push(performance.now());
+      return play.call(this);
+    };
+  });
+  await fakeClock(page);
+  await prepare(page);
+  await start(page);
+  const began = await page.evaluate(() => performance.now());
+  await page.clock.setSystemTime(new Date("2026-11-15T14:08:45Z"));
+  await page.clock.runFor(10000);
+  let bells = await page.evaluate(
+    () => (window as typeof window & { elapsedBells: number[] }).elapsedBells,
+  );
+  expect(bells).toEqual([began + 10000]);
+  await page.getByRole("button", { name: /CHECK/ }).click();
+  await page.clock.runFor(65000);
+  expect(
+    await page.evaluate(
+      () => (window as typeof window & { elapsedBells: number[] }).elapsedBells,
+    ),
+  ).toEqual(bells);
+  await start(page);
+  const next = await page.evaluate(() => performance.now());
+  await page.clock.runFor(10000);
+  bells = await page.evaluate(
+    () => (window as typeof window & { elapsedBells: number[] }).elapsedBells,
+  );
+  expect(bells.at(-1)).toBe(next + 10000);
+});
