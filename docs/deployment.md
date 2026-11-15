@@ -97,3 +97,14 @@ Service WorkerにはskipWaitingを入れない。更新データの取得後、�
 - 単体45件成功。公開URLで全17件成功（46.9秒）。Web Audio・HTML Audioそれぞれのホーム無音、試聴停止、対戦への復帰と連続3ターンを含む。
 
 更新は試合の合間にページを再読込し、全タブ・PWAを閉じて開き直す。画面下部のv1.3.1で確認。計測中の強制再読込や保存データの削除は行わない。成果物は /workspace/artifacts/usotuki/handkerchief-home-audio-fix/ 。
+
+
+## v1.4 ターン開始基準の経過音
+
+実時計同期を廃止し、TurnClockの開始時のperformance.nowを音の起点に使用。早期終了・中断は停止、時間切れは60秒の長音の余韻まで再生、次ターンは0秒。女性音声も経過時間へ変更。
+
+source: 188d9361db5183a0ae442cc419c4bc7cb708b3ad
+build: e11f443c0dfa00a5afafa70f2c5cf3c40f1eb153
+deployment: 76023b96b4a44127b58dbc4ab7e9cd4c
+
+単体45件、公開URLの全18件成功（49.8秒）。実時計の6時間変更、早期終了後の無音、次ターンの再起算を含む。静的16ファイル一致。実機スピーカーの遅延は未検証。既存の静的配信・DNS・保存形式は維持。成果物は /workspace/artifacts/usotuki/handkerchief-relative-clock/ 。

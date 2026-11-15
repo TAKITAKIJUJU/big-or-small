@@ -15,13 +15,16 @@ async function prepare(page: Page) {
     page.getByRole("button", { name: /カウント開始/ }),
   ).toBeEnabled();
 }
+const timedPages = new WeakSet<Page>();
 async function start(page: Page) {
   await page
     .getByRole("button", { name: /カウント開始|次のターンを開始/ })
     .click();
+  if (timedPages.has(page)) await page.clock.runFor(3000);
   await expect(page.getByRole("button", { name: /CHECK/ })).toBeVisible();
 }
 async function fakeClock(page: Page) {
+  timedPages.add(page);
   await page.clock.install({ time: new Date("2026-11-15T08:08:00Z") });
   await page.clock.pauseAt(new Date("2026-11-15T08:08:45Z"));
 }
@@ -351,6 +354,7 @@ test("別タブの同時開始は上書きを拒否し、先に確定した記�
   await second
     .getByRole("button", { name: /カウント開始|次のターンを開始/ })
     .click();
+  await second.clock.runFor(3000);
   await expect(second.locator(".notice.error")).toContainText("別のタブ");
   await page.getByRole("button", { name: /CHECK/ }).click();
   await expect(page.locator(".save-status")).toContainText("保存済み");
@@ -440,13 +444,13 @@ test("時報OFFでも試聴は最後まで再生し、WebAudio不可でも毎分
   const tones = plays.filter((p) => /\/(tick|pip|chime)\.wav$/.test(p.src));
   expect(tones.filter((p) => p.src.endsWith("/pip.wav"))).toHaveLength(0);
   const bells = tones.filter((p) => p.src.endsWith("/chime.wav"));
-  expect(bells.map((p) => p.at % 60000)).toEqual([55000]);
+  expect(bells.map((p) => p.at % 60000)).toEqual([58000]);
   const bell = bells.at(-1)!;
   expect(bell.volume).toBeGreaterThan(0.4);
   expect(tones.some((p) => p.src.endsWith("/tick.wav"))).toBe(true);
   expect(plays.some((p) => p.src.endsWith("/time-voice.mp3"))).toBe(true);
   const speech = plays.filter((p) => p.src.endsWith("/time-voice.mp3"));
-  expect(speech[0].at % 60000).toBe(48000);
+  expect(speech[0].at % 60000).toBe(51000);
   expect(speech).toHaveLength(1);
   for (const [i, key] of ["second-10"].entries())
     expect(speech[i].position).toBeCloseTo(voiceIndex[key].start, 3);
@@ -813,4 +817,52 @@ test("実時計を6時間変えても開始10秒で鳴り、早期終了後は�
     () => (window as typeof window & { elapsedBells: number[] }).elapsedBells,
   );
   expect(bells.at(-1)).toBe(next + 10000);
+});
+
+test("開始前3秒は判定せず、取り消し・非表示で無効化し、3秒後を0秒とする", async ({
+  page,
+}) => {
+  await fakeClock(page);
+  await prepare(page);
+  const begin = () =>
+    page.getByRole("button", { name: /カウント開始|次のターンを開始/ }).click();
+  await begin();
+  await expect(page.getByRole("timer")).toHaveText("3");
+  await page.clock.runFor(1000);
+  await expect(page.getByRole("timer")).toHaveText("2");
+  await expect(page.getByRole("button", { name: /CHECK/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "開始を取り消す" }).click();
+  await page.clock.runFor(65000);
+  await expect(page.locator(".last-result")).toHaveCount(0);
+  await begin();
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.clock.runFor(5000);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: false,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(
+    page.getByRole("button", { name: /カウント開始/ }),
+  ).toBeVisible();
+  await begin();
+  await page.clock.runFor(2000);
+  await expect(page.getByRole("timer")).toHaveText("1");
+  await page.clock.runFor(999);
+  await expect(page.getByRole("button", { name: /CHECK/ })).toHaveCount(0);
+  await page.clock.runFor(1);
+  await expect(page.getByRole("button", { name: /CHECK/ })).toBeVisible();
+  await page.clock.runFor(1000);
+  await page.getByRole("button", { name: /DROP/ }).click();
+  await page.clock.runFor(1000);
+  await page.getByRole("button", { name: /CHECK/ }).click();
+  await expect(page.locator(".last-result")).toContainText("1.00");
 });
