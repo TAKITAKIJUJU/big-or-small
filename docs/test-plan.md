@@ -58,3 +58,5 @@ ChromiumでWeb Audioを無効にし、実際のHTML Audioのplayからendedま�
 初回公開では、Service Workerの制御前に取得したCDNの音声応答もRange非対応となり、初回だけ再生位置が0秒に戻ることを確認した。内蔵音声を一度取得し、HTML AudioはローカルBlobのメタデータ読込後にシークする方式へ補強。Web Audio不可の再生・区間検査が成功（14.4秒）。
 
 Android実機と実際のスピーカー音量は未検証。試聴の「午前8時8分」は固定サンプルで、通常時報は端末時刻を予告する。計時・勝敗・保存形式の変更はない。
+
+最終公開URL https://usotuki.app/ の全13件が成功（35.4秒）。内蔵音声は正しい時・分・秒の区間で再生し、公開環境の初回読込とオフライン範囲応答も成功。静的16ファイルがビルドと一致。成果物は /workspace/artifacts/usotuki/handkerchief-time-signal/ 。
