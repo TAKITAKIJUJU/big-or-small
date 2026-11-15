@@ -1,31 +1,31 @@
 {
   "product": "USOTUKI ハンカチ落とし計時器",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "url": "https://usotuki.app/",
   "worker": "usotuki",
-  "sourceCommit": "0d5f8cad5d0fd805235df5b13dc1e7ae62807b40",
-  "buildCommit": "ef2926540c5c44aa0475f74ecbc378fa83311a37",
-  "deploymentId": "fe620b5abf974f72a40d154848382c12",
-  "previousDeploymentId": "eecf8ae21c7347ac97b70b06d7107eba",
+  "sourceCommit": "007931c121276af01a5542131a544724be6d4986",
+  "buildCommit": "25dfef199ca41f618a2f650a1bb9f4b8f03684b1",
+  "deploymentId": "3c323445b33b431c87e3f4c2568e96bf",
+  "previousDeploymentId": "fe620b5abf974f72a40d154848382c12",
   "previousProductDeploymentId": "263e9a79915e452592e119ad79af400f",
-  "updatedAt": "2026-11-15T16:55:15.179924+00:00",
+  "updatedAt": "2026-11-15T17:11:24.512875+00:00",
   "compatibilityDate": "2026-11-14",
   "assetsOnly": true,
   "runWorkerFirst": false,
   "workerCacheEnabled": false,
   "bindings": [],
   "manifest": {
-    "/assets/index-C_UEMWcl.js": {
-      "hash": "a0c74e69aad0bd5cbc64cca1337cf997",
-      "size": 276086
-    },
     "/assets/index-D-O8FZy1.css": {
       "hash": "c90d9da3b96b55656723d0d4179e8f7e",
       "size": 15991
     },
+    "/assets/index-Dr5SIN_d.js": {
+      "hash": "d85ff7e3d869b7fb209c81492c52feb5",
+      "size": 277071
+    },
     "/audio-attribution.txt": {
-      "hash": "84c0e04ba21b7627d53b438541001337",
-      "size": 6765
+      "hash": "79c3a74c5c88b240e592de8665b3833a",
+      "size": 3541
     },
     "/chime.wav": {
       "hash": "39c1f65705f6345581ef80fa3703bad2",
@@ -44,12 +44,12 @@
       "size": 3843
     },
     "/index.html": {
-      "hash": "6dd42fe6e36e177ca61225cd57c23e5b",
+      "hash": "0a3471324fd1e475bf94da8c0b3dfff3",
       "size": 920
     },
     "/licenses.txt": {
-      "hash": "b08ec1507133ab5b3a4783e7b5997449",
-      "size": 10312
+      "hash": "3fbec55fe38211561d161300e9ad4aef",
+      "size": 7088
     },
     "/manifest.webmanifest": {
       "hash": "d953d7bf2e78f15c4143c21485172b09",
@@ -60,15 +60,15 @@
       "size": 6218
     },
     "/signal-preview-voice.mp3": {
-      "hash": "bb72f5e65779279bb55bb152952b942c",
+      "hash": "d27b6d7587ab7b21b3e04ef87256f40d",
       "size": 92829
     },
     "/signal-preview.wav": {
-      "hash": "e2e2fb7e10fa188470a32833c18ef286",
+      "hash": "51040f27fa8bd457a37b37cea27e7b94",
       "size": 507194
     },
     "/sw.js": {
-      "hash": "7de02e8035dd6415b46f6b645f422278",
+      "hash": "1c40380a5afddb40b5e1d547323a9996",
       "size": 1965
     },
     "/tick.wav": {
@@ -76,8 +76,8 @@
       "size": 1586
     },
     "/time-voice.mp3": {
-      "hash": "3917e8cbcc7e38308a2b803a95d6aac6",
-      "size": 670658
+      "hash": "f1495e906e86e2434a7ae781c0a19240",
+      "size": 642655
     }
   },
   "rulesVersion": "handkerchief-1",
@@ -90,14 +90,17 @@
   },
   "archiveBranch": "codex/archive-air-poker-wip-20261115",
   "verification": {
-    "unitTests": 43,
-    "productionBrowserTests": 13,
-    "productionBrowserSeconds": 35.4,
+    "unitTests": 44,
+    "productionBrowserTests": 15,
+    "productionBrowserSeconds": 40.8,
     "productionFilesMatch": 16,
+    "consecutiveAudioTurns": 3,
+    "closedAudioContextRecoveryTested": true,
     "androidDeviceTested": false,
-    "physicalSpeakerTested": false
+    "physicalSpeakerTested": false,
+    "reportedDeviceStopCauseIdentified": false
   },
-  "previousVerifiedDeploymentId": "9da5fe9556bc4a5ab224c337af77c6b5",
+  "previousVerifiedDeploymentId": "fe620b5abf974f72a40d154848382c12",
   "audio": {
     "profile": "time-signal",
     "secondTicks": true,
@@ -109,10 +112,16 @@
     "minuteBell": 0,
     "spokenTargets": [
       0,
+      10,
       20,
-      40
+      30,
+      40,
+      50
     ],
-    "voice": "bundled NIT ATR503 M001, CC BY 3.0",
-    "htmlVoiceSource": "local Blob, metadata ready before seek"
+    "voice": "bundled MMDAgent Mei (normal), CC BY 3.0",
+    "htmlVoiceSource": "local Blob, metadata ready before seek",
+    "bellEverySeconds": 10,
+    "rearmEachTurn": true,
+    "recreateClosedAudioContext": true
   }
 }

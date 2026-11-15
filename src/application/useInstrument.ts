@@ -26,7 +26,7 @@ import {
 } from "../audio/chime";
 import { TimeSignalPlanner } from "../audio/signal";
 import { TurnClock } from "./clock";
-export function useInstrument() {
+export function useInstrument(signalActive: boolean) {
   const [matches, setMatches] = useState<Match[]>([]),
     [current, setCurrent] = useState<Match | null>(null),
     [settings, setSettingsState] = useState<Preferences>(DEFAULTS),
@@ -157,12 +157,17 @@ export function useInstrument() {
     window.addEventListener("beforeunload", before);
     return () => {
       clearInterval(timer);
+      cancelSound(true);
       document.removeEventListener("visibilitychange", hidden);
       window.removeEventListener("pagehide", hide);
       window.removeEventListener("beforeunload", before);
     };
   }, [clock]);
   useEffect(() => {
+    if (!signalActive) {
+      cancelSound();
+      return;
+    }
     const planner = new TimeSignalPlanner();
     const step = () => {
       const now = Date.now(),
@@ -190,7 +195,7 @@ export function useInstrument() {
       clearInterval(timer);
       cancelSound();
     };
-  }, [settings, audioRevision]);
+  }, [settings, audioRevision, signalActive]);
   const active = !!current?.active;
   useEffect(() => {
     if (!active) return;
@@ -227,7 +232,8 @@ export function useInstrument() {
   async function audio(test = false) {
     try {
       if (test) {
-        await previewChime(settings, setPreviewPlaying);
+        const result = await previewChime(settings, setPreviewPlaying);
+        if (result === "cancelled") return;
         setAudioNotice(
           "試聴を再生しました。聞こえない場合は端末のメディア音量を確認してください",
         );
@@ -307,6 +313,7 @@ export function useInstrument() {
     audioReady,
     previewPlaying,
     stopPreview,
+    stopAudio: () => cancelSound(true),
     audio,
     running: active,
     dropped: clock.dropped,

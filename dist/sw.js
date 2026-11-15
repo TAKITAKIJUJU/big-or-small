@@ -1,4 +1,4 @@
-const CACHE='handkerchief-e7872652abf2a0b9';const URLS=["/assets/index-D-O8FZy1.css","/assets/index-Dr5SIN_d.js","/audio-attribution.txt","/chime.wav","/favicon.svg","/icon-192.png","/icon-512.png","/","/licenses.txt","/manifest.webmanifest","/pip.wav","/signal-preview-voice.mp3","/signal-preview.wav","/tick.wav","/time-voice.mp3"];
+const CACHE='handkerchief-e0ff6ca5e6054ef9';const URLS=["/assets/index-B_8KoreB.js","/assets/index-D-O8FZy1.css","/audio-attribution.txt","/chime.wav","/favicon.svg","/icon-192.png","/icon-512.png","/","/licenses.txt","/manifest.webmanifest","/pip.wav","/signal-preview-voice.mp3","/signal-preview.wav","/tick.wav","/time-voice.mp3"];
 async function audioRange(response,range){const bytes=await response.arrayBuffer(),size=bytes.byteLength,m=/^bytes=(\d*)-(\d*)$/.exec(range);let start,end;
 if(m&&(m[1]||m[2])){start=m[1]?Number(m[1]):Math.max(0,size-Number(m[2]));end=m[1]?(m[2]?Math.min(Number(m[2]),size-1):size-1):size-1;}
 if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||start>=size||end<start)return new Response(null,{status:416,headers:{'Content-Range':'bytes */'+size}});

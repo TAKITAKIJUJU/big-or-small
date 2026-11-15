@@ -21,8 +21,8 @@ import "./style.css";
 type Page =
   "home" | "setup" | "match" | "history" | "past" | "rules" | "settings";
 export default function App() {
-  const app = useInstrument(),
-    [page, setPage] = useState<Page>("home"),
+  const [page, setPage] = useState<Page>("home");
+  const app = useInstrument(page === "match"),
     [nameA, setNameA] = useState(""),
     [nameB, setNameB] = useState(""),
     [first, setFirst] = useState<Person>("A"),
@@ -64,7 +64,10 @@ export default function App() {
     };
   }, [setNotice]);
   function go(next: Page) {
-    if (!running) setPage(next);
+    if (!running && next !== page) {
+      app.stopAudio();
+      setPage(next);
+    }
   }
   async function confirmed() {
     if (!m) return;
@@ -73,6 +76,7 @@ export default function App() {
       else {
         await removeMatch(m.id);
         app.forget(m.id);
+        app.stopAudio();
         setPage("past");
       }
       setDialog(null);
@@ -784,7 +788,7 @@ export default function App() {
         </div>
       )}
       <footer className="app-footer">
-        USOTUKI · ハンカチ計時器 · v1.3 <span>記録は端末内のみ</span>
+        USOTUKI · ハンカチ計時器 · v1.3.1 <span>記録は端末内のみ</span>
       </footer>
     </div>
   );
