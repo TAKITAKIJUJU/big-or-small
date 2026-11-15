@@ -1,5 +1,7 @@
 # USOTUKI — ハンカチ落とし計時器
 
+**公開版：https://usotuki.app/**
+
 本物のハンカチと椅子を使い、同じ場所にいる2人がスマホ1台で遊ぶための日本語PWA。スマホを持つドロップ側（D）が開始・落下・チェックを記録します。チェック側（C）は前向きに座り、スマホを操作しません。
 
 1ターン60秒。蓄積・消化済み・ペナルティ内訳を分離し、累計臨死時間（蓄積＋消化済み）が300秒以上になると敗北。毎ターン交代し、強制インターバルも自動開始もありません。薬・注射・蘇生の動作は行いません。
@@ -48,7 +50,7 @@ npm run test:e2e
 
 ## 公開
 
-公開先候補／既存ドメインは https://usotuki.app/ 。既存Cloudflare Worker「usotuki」の静的配信を使用できます。アプリの記録は配信サーバーへ送信しません。最新の公開状態・コミット・検証結果は [docs/deployment.md](docs/deployment.md) とdeployment/production.jsonを参照してください。
+公開先／既存ドメインは https://usotuki.app/ 。既存Cloudflare Worker「usotuki」の静的配信を使用できます。アプリの記録は配信サーバーへ送信しません。最新の公開状態・コミット・検証結果は [docs/deployment.md](docs/deployment.md) とdeployment/production.jsonを参照してください。
 
 Cloudflareの既存ドメインとWorker割当を確認してから静的資産だけを更新し、DNS・契約プラン・動的バックエンドを勝手に変更しません。新規構成は公式cf CLIを推奨。今回は既存の接続済みCloudflare API配信方式を維持します。認証のない別環境ではCLIでログインが必要です。無料枠の条件と公式資料はデプロイドキュメントに記載。
 

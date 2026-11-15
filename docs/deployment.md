@@ -29,3 +29,17 @@ dist/の内容だけを公開する。Service Workerはルート/sw.js、manifes
 公開URLのHTML・JS・CSS・アイコン・manifest・Service Worker・ライセンスがビルドと一致することを照合し、公開URLで主要ブラウザ検査を行う。公開コミットとdeployment IDはdeployment/production.jsonに記録する。
 
 Service WorkerにはskipWaitingを入れない。更新データの取得後、全画面を閉じて開き直すと次の版へ切り替わる。計測中に強制リロードしない。資産は静的な同一内容なので、オフライン読込でVaryヘッダーの差によりキャッシュが外れないようにする。
+
+## 公開結果
+
+2026-11-15、上記の既存設定を確認後に同じ https://usotuki.app/ へ公開した。DNS変更なし。
+
+- source：0a3cca56618ad6c662423eaa59ef171a621a98d4（codex/handkerchief-pwa）
+- build：e1b2d7de67768d1504408480300c41d1457b4c91（codex/usotuki-static-release）
+- deployment：d2234112fbf74f208b9bbbd244936cbe
+- 静的9ファイルが配信とバイト一致。assets-only、動的モジュールなし、bindingsなし、Worker Cache無効。
+- 公開URLの全11件のブラウザ検査が成功（28.8秒）。計測・集計・終了・無効化・中断復元・オフライン再起動・時報試聴操作・保存失敗・別タブ競合を含む。
+
+初回公開ではCloudflareの/index.html→/という正規化で、キャッシュ内HTMLがリダイレクト済みResponseとなり、再ナビゲーション時にブラウザが拒否した。HTMLを最初から/で取得・保存する方式へ修正し、ソース0a3cca5の全11件が公開URLで成功。中間deployment 5d639477d6d34b0bb902bdaa0f034577はこの修正前の版。
+
+配信用ZIP、画面、資産照合JSONは /workspace/artifacts/usotuki/handkerchief/ 。Android実機未検証。
