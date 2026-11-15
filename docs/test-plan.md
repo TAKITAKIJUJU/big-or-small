@@ -44,3 +44,5 @@ Linux Chromiumの計測中60区間のrequestAnimationFrame間隔は中央値16.7
 ChromiumでWeb Audioを無効にし、実際のHTML Audioのplayからendedまでを確認。時報OFFで試聴が終了まで再生され、ONでは毎分00秒に音声ファイルを再生することを検査。主要な見出し・説明・数値・ラベル・ボタンは計算したコントラスト比4.5以上。結果が次の開始ボタンより上にあることと、320〜430pxでの記録ボタン配置も確認した。
 
 再生処理の成功はスピーカーから耳に届く音量の保証ではない。Android実機での聴取・マナーモード・PWAのOS挙動は未検証。今回の変更で計時・判定・保存形式は変更していない。
+
+公開URL https://usotuki.app/ でも全13件成功（24.3秒）。音源を含む静的10ファイルがビルドと一致。画像と照合JSONは /workspace/artifacts/usotuki/handkerchief-readability/ 。
