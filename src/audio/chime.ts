@@ -61,6 +61,12 @@ type Pool = {
 };
 const scheduled: Pool = { nodes: new Set(), timers: new Set(), generation: 0 };
 const preview: Pool = { nodes: new Set(), timers: new Set(), generation: 0 };
+const countdownAudio: Pool = {
+  nodes: new Set(),
+  timers: new Set(),
+  generation: 0,
+};
+const countdownMedia = new Map<Tone, HTMLAudioElement>();
 type Failure = (message: string) => void;
 function timer(pool: Pool, callback: () => void, delay: number) {
   const id = setTimeout(
@@ -266,7 +272,51 @@ export function cancelSound(includePreview = false) {
   voiceMedia?.pause();
   if (voiceMedia)
     voiceGeneration.set(voiceMedia, (voiceGeneration.get(voiceMedia) ?? 0) + 1);
-  if (includePreview) stopPreview();
+  if (includePreview) {
+    stopPreview();
+    stop(countdownAudio);
+    for (const audio of countdownMedia.values()) audio.pause();
+  }
+}
+/** 開始の締切へ予約し、通常時報の再同期から独立させる。取消後は鳴らさない。 */
+export function countdownChimes(
+  p: Preferences,
+  deadline: number,
+  onFailure?: (message: string) => void,
+) {
+  if (!p.chime || p.volume <= 0 || !isAudioReady()) return;
+  const generation = countdownAudio.generation;
+  for (let index = 0; index <= 3; index++) {
+    const kind: Tone = index === 3 ? "bell" : "pip";
+    const delay = deadline - 3000 + index * 1000 - performance.now();
+    if (delay < -250) continue;
+    if (synthTone(p, kind, delay, countdownAudio)) continue;
+    timer(
+      countdownAudio,
+      () => {
+        let audio = countdownMedia.get(kind);
+        if (!audio) {
+          audio = new Audio(paths[kind]);
+          countdownMedia.set(kind, audio);
+        }
+        const player = audio;
+        player.volume = p.volume;
+        player.currentTime = 0;
+        void player
+          .play()
+          .then(() => {
+            if (generation !== countdownAudio.generation) player.pause();
+          })
+          .catch(() => {
+            if (generation === countdownAudio.generation)
+              onFailure?.(
+                "開始音を再生できません。試合の合間に音声を試聴してください",
+              );
+          });
+      },
+      delay,
+    );
+  }
 }
 export function stopPreview() {
   previewMedia?.pause();
@@ -455,8 +505,7 @@ export async function previewChime(
           s * 1000,
           preview,
         );
-      if (p.voice)
-        speak(p, 60000, 3000, preview);
+      if (p.voice) speak(p, 60000, 3000, preview);
       onPlaying(true);
       timer(
         preview,

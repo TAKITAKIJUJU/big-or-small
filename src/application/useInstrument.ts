@@ -15,6 +15,7 @@ import {
 } from "../storage/db";
 import {
   cancelSound,
+  countdownChimes,
   playSignal,
   isAudioReady,
   DEFAULTS,
@@ -149,6 +150,7 @@ export function useInstrument(signalActive: boolean) {
         if (performance.now() >= at) {
           countdownDeadline.current = null;
           if (faultRef.current || document.hidden) {
+            cancelSound(true);
             setCountdown(0);
             return;
           }
@@ -330,9 +332,15 @@ export function useInstrument(signalActive: boolean) {
       signalOrigin.current = null;
       cancelSound(true);
       countdownDeadline.current = performance.now() + 3000;
+      const deadline = countdownDeadline.current;
       setCountdown(3);
+      setAudioReady(false);
+      setAudioNotice("開始音を準備しています");
       setAudioRevision((revision) => revision + 1);
-      void audio();
+      void audio().then(() => {
+        if (countdownDeadline.current === deadline && !document.hidden)
+          countdownChimes(settings, deadline, setAudioNotice);
+      });
     }
   }
   function invalidate(reason: string) {
