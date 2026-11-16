@@ -717,7 +717,7 @@ export default function App() {
                   />
                 </label>
                 <small>
-                  1秒ごとにチッ、10秒ごとにポーン。開始から57・58・59秒はピッ。経過時間を10秒ごとに予告します。
+                  1秒ごとにチッ、10秒ごとにポーン。開始から57・58・59秒はピッ。各合図の約3秒前から経過時間を予告します。
                 </small>
                 <button
                   className="secondary"
@@ -816,7 +816,7 @@ export default function App() {
         </div>
       )}
       <footer className="app-footer">
-        USOTUKI · ハンカチ計時器 · v1.5.1 <span>記録は端末内のみ</span>
+        USOTUKI · ハンカチ計時器 · v1.5.2 <span>記録は端末内のみ</span>
       </footer>
     </div>
   );

@@ -251,3 +251,10 @@ it("読み込み中に止めた試聴が、拒否後の代替音で鳴り直さ�
   expect(oscillator).not.toHaveBeenCalled();
   expect(playing).toHaveBeenLastCalledWith(false);
 });
+
+it("10秒ごとの内蔵予告は、3秒前に始めると合図までに読み終える", () => {
+  for (const seconds of [10, 20, 30, 40, 50, 60]) {
+    const clips: Record<string, { length: number }> = voiceIndex;
+    expect(clips[`second-${seconds}`].length).toBeLessThan(3);
+  }
+});

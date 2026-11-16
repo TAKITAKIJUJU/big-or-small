@@ -457,7 +457,7 @@ test("時報OFFでも試聴は最後まで再生し、WebAudio不可でも毎分
   expect(tones.some((p) => p.src.endsWith("/tick.wav"))).toBe(true);
   expect(plays.some((p) => p.src.endsWith("/time-voice.mp3"))).toBe(true);
   const speech = plays.filter((p) => p.src.endsWith("/time-voice.mp3"));
-  expect(speech[0].at % 60000).toBe(51000);
+  expect(speech[0].at % 60000).toBe(55000);
   expect(speech).toHaveLength(1);
   for (const [i, key] of ["second-10"].entries())
     expect(speech[i].position).toBeCloseTo(voiceIndex[key].start, 3);
