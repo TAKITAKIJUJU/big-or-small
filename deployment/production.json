@@ -1,14 +1,14 @@
 {
   "product": "USOTUKI ハンカチ落とし計時器",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "url": "https://usotuki.app/",
   "worker": "usotuki",
-  "sourceCommit": "9169eb5b3683843e0e8faf2881e5bfac7c76eab9",
-  "buildCommit": "744aa7ef64e73a877741448e176cb4a6a6a23c6a",
-  "deploymentId": "4515d45a683346f99e286b35b2cff5e6",
-  "previousDeploymentId": "66b6edcf95134419990f13d2fa49ce98",
+  "sourceCommit": "4eb32e75623e84667102f28a3dffa994f2025d9b",
+  "buildCommit": "f5f611e29bec4bf84a4c2462ee0ea858f63c1e47",
+  "deploymentId": "fc8fd2894fe6499c97fab21a32c2f579",
+  "previousDeploymentId": "4515d45a683346f99e286b35b2cff5e6",
   "previousProductDeploymentId": "263e9a79915e452592e119ad79af400f",
-  "updatedAt": "2026-11-15T18:38:58.397912+00:00",
+  "updatedAt": "2026-11-16T08:21:41.903693+00:00",
   "compatibilityDate": "2026-11-14",
   "assetsOnly": true,
   "runWorkerFirst": false,
@@ -19,9 +19,9 @@
       "hash": "c90d9da3b96b55656723d0d4179e8f7e",
       "size": 15991
     },
-    "/assets/index-DJZI4pY9.js": {
-      "hash": "3b9f455862e4bbfaae0a24aa1077b471",
-      "size": 279435
+    "/assets/index-DTH8ZF-L.js": {
+      "hash": "396ba0c3a901ef954e06d813f35b2ca9",
+      "size": 279449
     },
     "/audio-attribution.txt": {
       "hash": "79c3a74c5c88b240e592de8665b3833a",
@@ -44,7 +44,7 @@
       "size": 3843
     },
     "/index.html": {
-      "hash": "f2c08eab0dbe00961d2d714a42234ad9",
+      "hash": "90fa47ca29cbca92387a9061f10e2b4c",
       "size": 920
     },
     "/licenses.txt": {
@@ -60,7 +60,7 @@
       "size": 6218
     },
     "/signal-preview-voice.mp3": {
-      "hash": "630dae81f664aebbcc72b71887949419",
+      "hash": "8205fa76fe8ea64de38d9e4b034241dc",
       "size": 92829
     },
     "/signal-preview.wav": {
@@ -68,7 +68,7 @@
       "size": 507194
     },
     "/sw.js": {
-      "hash": "36bcb36c9dc95826b114fd6ea59aa56d",
+      "hash": "dee9a4afbe47617e5631d4e1aa3c5e27",
       "size": 1965
     },
     "/tick.wav": {
@@ -90,7 +90,7 @@
   },
   "archiveBranch": "codex/archive-air-poker-wip-20261115",
   "verification": {
-    "unitTests": 46,
+    "unitTests": 47,
     "productionBrowserTests": 20,
     "productionFilesMatch": 16,
     "consecutiveAudioTurns": 3,
@@ -101,11 +101,12 @@
     "homeSilenceTested": true,
     "previewCancellationTested": true,
     "wallClockChangeTested": true,
-    "productionBrowserDuration": "1.1m",
+    "productionBrowserDuration": "1.2m",
     "countdownBoundaryAndCancellationTested": true,
-    "countdownSoundSequenceTested": true
+    "countdownSoundSequenceTested": true,
+    "threeSecondAnnouncementLeadTested": true
   },
-  "previousVerifiedDeploymentId": "66b6edcf95134419990f13d2fa49ce98",
+  "previousVerifiedDeploymentId": "4515d45a683346f99e286b35b2cff5e6",
   "audio": {
     "profile": "time-signal",
     "secondTicks": true,
@@ -145,6 +146,7 @@
       ],
       "startBellAtMs": 3000,
       "separateSchedulingPool": true
-    }
+    },
+    "announcementLeadMs": 3000
   }
 }

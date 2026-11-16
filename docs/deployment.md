@@ -130,3 +130,14 @@ build: 744aa7ef64e73a877741448e176cb4a6a6a23c6a
 deployment: 4515d45a683346f99e286b35b2cff5e6
 
 単体46件、型・Lint・ビルド成功。公開URLの全20件成功（約1.1分）。実際のHTML Audioの再生で短音0/1000/2000ms・開始長音3000msと取消を確認。静的16ファイル一致。DNS・配信方式・保存形式を維持。実機スピーカーの聴取と遅延は未検証。成果物は /workspace/artifacts/usotuki/handkerchief-countdown-sound/ 。
+
+
+## v1.5.2 予告を3秒前へ変更
+
+各合図の3秒前に読み上げを開始。7/17/27/37/47/57秒に次の10秒境界を予告し、基準音は10/20/30/40/50/60秒を維持。試聴も3秒前に合わせた。
+
+source: 4eb32e75623e84667102f28a3dffa994f2025d9b
+build: f5f611e29bec4bf84a4c2462ee0ea858f63c1e47
+deployment: fc8fd2894fe6499c97fab21a32c2f579
+
+単体47件、型・Lint・ビルド成功。公開URLの全20件成功（約1.2分）。各予告音源が3秒以内に収まること、予約計算、実際のHTML Audio再生開始を検査。静的16ファイル一致。配信方式・DNS・保存形式は維持。実機スピーカー遅延は未検証。成果物は /workspace/artifacts/usotuki/handkerchief-three-second-announcement/ 。
