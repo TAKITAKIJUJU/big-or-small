@@ -505,7 +505,7 @@ export async function previewChime(
           s * 1000,
           preview,
         );
-      if (p.voice) speak(p, 60000, 3000, preview);
+      if (p.voice) speak(p, 60000, 7000, preview);
       onPlaying(true);
       timer(
         preview,

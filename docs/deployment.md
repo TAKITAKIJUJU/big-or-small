@@ -119,3 +119,14 @@ build: 6cf0c3b7dd1f35bd42c3e9f7a3e5938bbc62e32b
 deployment: 66b6edcf95134419990f13d2fa49ce98
 
 型・Lint・ビルド・単体46件成功。公開URLの全19件成功（約1.1分）。3秒の境界、取消、非表示、連続ターン、保存競合、音の起算を含む。静的16ファイル一致。配信・DNS・保存形式は維持。画面下部のv1.5で確認。成果物は /workspace/artifacts/usotuki/handkerchief-countdown/ 。Android実機の描画・スピーカー遅延は未検証。
+
+
+## v1.5.1 カウントダウン・開始音
+
+3・2・1を短音、開始の締切を長音で知らせる。経過音の再同期から独立した予約を使用し、取消・非表示・離脱では予約も停止。音OFFと音量0を尊重。
+
+source: 9169eb5b3683843e0e8faf2881e5bfac7c76eab9
+build: 744aa7ef64e73a877741448e176cb4a6a6a23c6a
+deployment: 4515d45a683346f99e286b35b2cff5e6
+
+単体46件、型・Lint・ビルド成功。公開URLの全20件成功（約1.1分）。実際のHTML Audioの再生で短音0/1000/2000ms・開始長音3000msと取消を確認。静的16ファイル一致。DNS・配信方式・保存形式を維持。実機スピーカーの聴取と遅延は未検証。成果物は /workspace/artifacts/usotuki/handkerchief-countdown-sound/ 。

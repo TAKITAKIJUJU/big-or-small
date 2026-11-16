@@ -80,7 +80,7 @@ for second in range(11):
 wav(ROOT / "public/signal-preview.wav", preview)
 sample_voice = clips["second-60"]
 assert len(sample_voice) < RATE * 6, "Announcement must finish before the three pips"
-preview[RATE * 3:RATE * 3 + len(sample_voice)] += sample_voice
+preview[RATE * 7:RATE * 7 + len(sample_voice)] += sample_voice
 mp3(ROOT / "public/signal-preview-voice.mp3", preview)
 max_seconds = max(len(clips[f"hour-{h}"]) + len(clips[f"minute-{m}"]) +
                   len(clips[f"second-{s}"]) for h in range(24) for m in range(60) for s in range(0, 60, 10)) / RATE + 0.16

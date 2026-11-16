@@ -31,7 +31,7 @@ export class TimeSignalPlanner {
         cues.push({
           at,
           tone: second % 10 === 0 ? "bell" : second >= 57 ? "pip" : "tick",
-          ...(second % 10 === 3 ? { announceAt: at + 7000 } : {}),
+          ...(second % 10 === 7 ? { announceAt: at + 3000 } : {}),
         });
         this.scheduled = at;
       }

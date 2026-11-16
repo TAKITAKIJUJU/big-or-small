@@ -1,14 +1,14 @@
 {
   "product": "USOTUKI ハンカチ落とし計時器",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "url": "https://usotuki.app/",
   "worker": "usotuki",
-  "sourceCommit": "d5db383076de582e8b545098634d715c4b159cfb",
-  "buildCommit": "6cf0c3b7dd1f35bd42c3e9f7a3e5938bbc62e32b",
-  "deploymentId": "66b6edcf95134419990f13d2fa49ce98",
-  "previousDeploymentId": "76023b96b4a44127b58dbc4ab7e9cd4c",
+  "sourceCommit": "9169eb5b3683843e0e8faf2881e5bfac7c76eab9",
+  "buildCommit": "744aa7ef64e73a877741448e176cb4a6a6a23c6a",
+  "deploymentId": "4515d45a683346f99e286b35b2cff5e6",
+  "previousDeploymentId": "66b6edcf95134419990f13d2fa49ce98",
   "previousProductDeploymentId": "263e9a79915e452592e119ad79af400f",
-  "updatedAt": "2026-11-15T18:15:03.496474+00:00",
+  "updatedAt": "2026-11-15T18:38:58.397912+00:00",
   "compatibilityDate": "2026-11-14",
   "assetsOnly": true,
   "runWorkerFirst": false,
@@ -19,9 +19,9 @@
       "hash": "c90d9da3b96b55656723d0d4179e8f7e",
       "size": 15991
     },
-    "/assets/index-DbFaattT.js": {
-      "hash": "3023c5d052b79069957eb95fbf66b3e4",
-      "size": 278631
+    "/assets/index-DJZI4pY9.js": {
+      "hash": "3b9f455862e4bbfaae0a24aa1077b471",
+      "size": 279435
     },
     "/audio-attribution.txt": {
       "hash": "79c3a74c5c88b240e592de8665b3833a",
@@ -44,7 +44,7 @@
       "size": 3843
     },
     "/index.html": {
-      "hash": "9acd5fe1d4afece15e0c297ecafd205f",
+      "hash": "f2c08eab0dbe00961d2d714a42234ad9",
       "size": 920
     },
     "/licenses.txt": {
@@ -68,7 +68,7 @@
       "size": 507194
     },
     "/sw.js": {
-      "hash": "89013f0e05bc65d38a85a225a4392a7c",
+      "hash": "36bcb36c9dc95826b114fd6ea59aa56d",
       "size": 1965
     },
     "/tick.wav": {
@@ -91,7 +91,7 @@
   "archiveBranch": "codex/archive-air-poker-wip-20261115",
   "verification": {
     "unitTests": 46,
-    "productionBrowserTests": 19,
+    "productionBrowserTests": 20,
     "productionFilesMatch": 16,
     "consecutiveAudioTurns": 3,
     "closedAudioContextRecoveryTested": true,
@@ -102,9 +102,10 @@
     "previewCancellationTested": true,
     "wallClockChangeTested": true,
     "productionBrowserDuration": "1.1m",
-    "countdownBoundaryAndCancellationTested": true
+    "countdownBoundaryAndCancellationTested": true,
+    "countdownSoundSequenceTested": true
   },
-  "previousVerifiedDeploymentId": "76023b96b4a44127b58dbc4ab7e9cd4c",
+  "previousVerifiedDeploymentId": "66b6edcf95134419990f13d2fa49ce98",
   "audio": {
     "profile": "time-signal",
     "secondTicks": true,
@@ -135,6 +136,15 @@
     "clock": "performance.now, same origin as TurnClock",
     "resetEachTurn": true,
     "stopAfterEarlyFinish": true,
-    "preTurnCountdownSeconds": 3
+    "preTurnCountdownSeconds": 3,
+    "countdownTones": {
+      "pipAtMs": [
+        0,
+        1000,
+        2000
+      ],
+      "startBellAtMs": 3000,
+      "separateSchedulingPool": true
+    }
   }
 }
